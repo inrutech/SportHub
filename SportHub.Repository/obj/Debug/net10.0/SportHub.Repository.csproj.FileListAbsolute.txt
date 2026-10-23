@@ -1,0 +1,15 @@
+D:\代码\SportHub\SportHub.Repository\bin\Debug\net10.0\NLog.config
+D:\代码\SportHub\SportHub.Repository\bin\Debug\net10.0\SportHub.Repository.deps.json
+D:\代码\SportHub\SportHub.Repository\bin\Debug\net10.0\SportHub.Repository.dll
+D:\代码\SportHub\SportHub.Repository\bin\Debug\net10.0\SportHub.Repository.pdb
+D:\代码\SportHub\SportHub.Repository\obj\Debug\net10.0\SportHub.Repository.csproj.AssemblyReference.cache
+D:\代码\SportHub\SportHub.Repository\obj\Debug\net10.0\SportHub.Repository.GeneratedMSBuildEditorConfig.editorconfig
+D:\代码\SportHub\SportHub.Repository\obj\Debug\net10.0\SportHub.Repository.AssemblyInfoInputs.cache
+D:\代码\SportHub\SportHub.Repository\obj\Debug\net10.0\SportHub.Repository.AssemblyInfo.cs
+D:\代码\SportHub\SportHub.Repository\obj\Debug\net10.0\SportHub.Repository.csproj.CoreCompileInputs.cache
+D:\代码\SportHub\SportHub.Repository\obj\Debug\net10.0\SportHub.Repository.dll
+D:\代码\SportHub\SportHub.Repository\obj\Debug\net10.0\refint\SportHub.Repository.dll
+D:\代码\SportHub\SportHub.Repository\obj\Debug\net10.0\SportHub.Repository.pdb
+D:\代码\SportHub\SportHub.Repository\obj\Debug\net10.0\ref\SportHub.Repository.dll
+D:\代码\SportHub\SportHub.Repository\bin\Debug\net10.0\SportHub.Repository.runtimeconfig.json
+D:\代码\SportHub\SportHub.Repository\obj\Debug\net10.0\SportHub.Repository.genruntimeconfig.cache

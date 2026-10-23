@@ -1,0 +1,16 @@
+D:\代码\SportHub\SportHub.Core\bin\Debug\net10.0\NLog.config
+D:\代码\SportHub\SportHub.Core\bin\Debug\net10.0\SportHub.Core.deps.json
+D:\代码\SportHub\SportHub.Core\bin\Debug\net10.0\SportHub.Core.dll
+D:\代码\SportHub\SportHub.Core\bin\Debug\net10.0\SportHub.Core.pdb
+D:\代码\SportHub\SportHub.Core\bin\Debug\net10.0\SportHub.Repository.dll
+D:\代码\SportHub\SportHub.Core\bin\Debug\net10.0\SportHub.Repository.pdb
+D:\代码\SportHub\SportHub.Core\obj\Debug\net10.0\SportHub.Core.csproj.AssemblyReference.cache
+D:\代码\SportHub\SportHub.Core\obj\Debug\net10.0\SportHub.Core.GeneratedMSBuildEditorConfig.editorconfig
+D:\代码\SportHub\SportHub.Core\obj\Debug\net10.0\SportHub.Core.AssemblyInfoInputs.cache
+D:\代码\SportHub\SportHub.Core\obj\Debug\net10.0\SportHub.Core.AssemblyInfo.cs
+D:\代码\SportHub\SportHub.Core\obj\Debug\net10.0\SportHub.Core.csproj.CoreCompileInputs.cache
+D:\代码\SportHub\SportHub.Core\obj\Debug\net10.0\SportHub.7E5F4571.Up2Date
+D:\代码\SportHub\SportHub.Core\obj\Debug\net10.0\SportHub.Core.dll
+D:\代码\SportHub\SportHub.Core\obj\Debug\net10.0\refint\SportHub.Core.dll
+D:\代码\SportHub\SportHub.Core\obj\Debug\net10.0\SportHub.Core.pdb
+D:\代码\SportHub\SportHub.Core\obj\Debug\net10.0\ref\SportHub.Core.dll
