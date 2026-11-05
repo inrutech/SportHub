@@ -7,8 +7,6 @@ public partial class League
 {
     public long Id { get; set; }
 
-    public string? Name { get; set; }
-
     /// <summary>
     /// 联赛代码枚举（LEAGUE/CUP/SUPER/INTERNATIONAL）
     /// </summary>
@@ -20,5 +18,25 @@ public partial class League
 
     public long UpdatedTime { get; set; }
 
-    public string? AliasArrayJson { get; set; }
+    public string? NameEn { get; set; }
+
+    public string? NameZhCn { get; set; }
+
+    public string? NameZhTw { get; set; }
+
+    public string? ShortNameEn { get; set; }
+
+    public string? ShortNameZhCn { get; set; }
+
+    public string? ShortNameZhTw { get; set; }
+
+    public long? CountryId { get; set; }
+
+    public string? CountryEn { get; set; }
+
+    public string? CountryZhCn { get; set; }
+
+    public string? CountryZhTw { get; set; }
+
+    public string? SourceArrayJson { get; set; }
 }

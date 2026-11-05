@@ -10,11 +10,6 @@ public partial class OrderLeg
     public long? OrderId { get; set; }
 
     /// <summary>
-    /// 源编号
-    /// </summary>
-    public long? SourceCode { get; set; }
-
-    /// <summary>
     /// 串关中的第几场比赛序号
     /// </summary>
     public long? LegIndex { get; set; }
@@ -94,4 +89,14 @@ public partial class OrderLeg
     public long CreatedTime { get; set; }
 
     public long UpdatedTime { get; set; }
+
+    /// <summary>
+    /// 源编号
+    /// </summary>
+    public long? SourceNo { get; set; }
+
+    /// <summary>
+    /// 比赛编号
+    /// </summary>
+    public long? MatchId { get; set; }
 }

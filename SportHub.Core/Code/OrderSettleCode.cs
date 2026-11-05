@@ -1,4 +1,4 @@
-public enum OrderCode
+public enum OrderSettleCode
 {
     None = 0,
 }

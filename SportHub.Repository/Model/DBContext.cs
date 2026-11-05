@@ -28,9 +28,17 @@ public partial class DBContext : DbContext
             entity.HasKey(e => e.Id).HasName("StandardLeagues_pkey");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.AliasArrayJson).HasColumnType("jsonb");
+            entity.Property(e => e.CountryEn).HasMaxLength(256);
+            entity.Property(e => e.CountryZhCn).HasMaxLength(256);
+            entity.Property(e => e.CountryZhTw).HasMaxLength(256);
             entity.Property(e => e.LeagueCode).HasComment("联赛代码枚举（LEAGUE/CUP/SUPER/INTERNATIONAL）");
-            entity.Property(e => e.Name).HasMaxLength(256);
+            entity.Property(e => e.NameEn).HasMaxLength(256);
+            entity.Property(e => e.NameZhCn).HasMaxLength(256);
+            entity.Property(e => e.NameZhTw).HasMaxLength(256);
+            entity.Property(e => e.ShortNameEn).HasMaxLength(256);
+            entity.Property(e => e.ShortNameZhCn).HasMaxLength(256);
+            entity.Property(e => e.ShortNameZhTw).HasMaxLength(256);
+            entity.Property(e => e.SourceArrayJson).HasColumnType("jsonb");
         });
 
         modelBuilder.Entity<Order>(entity =>
@@ -78,13 +86,14 @@ public partial class DBContext : DbContext
             entity.Property(e => e.LegIndex).HasComment("串关中的第几场比赛序号");
             entity.Property(e => e.LegSettleCode).HasComment("结算状态（PENDING:待定, WON:全赢, HALF_WON:赢一半, PUSH:走水, HALF_LOST:输一半, LOST:全输）");
             entity.Property(e => e.MarketCode).HasComment("玩法类型（ASIAN_HANDICAP:让球, OVER_UNDER:大小球, MONEYLINE_1X2:独赢）");
+            entity.Property(e => e.MatchId).HasComment("比赛编号");
             entity.Property(e => e.MatchStartTime).HasComment("比赛开始时间");
             entity.Property(e => e.PeriodCode).HasComment("比赛阶段（FULL_TIME:全场, HALF_TIME:上半场）");
             entity.Property(e => e.SelectionCode).HasComment("投注选项（如 Under, Over, HOME, AWAY, DRAW 等）");
             entity.Property(e => e.SettledOdds)
                 .HasPrecision(19, 4)
                 .HasComment("实际结算有效赔率（全赢为原始赔率，赢一半为折算赔率，走水为1.0等）");
-            entity.Property(e => e.SourceCode).HasComment("源编号");
+            entity.Property(e => e.SourceNo).HasComment("源编号");
         });
 
         modelBuilder.Entity<Team>(entity =>
@@ -92,23 +101,11 @@ public partial class DBContext : DbContext
             entity.HasKey(e => e.Id).HasName("StandardTeams_pkey");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.Abbr)
-                .HasMaxLength(256)
-                .HasComment("球队缩写（如 PSG、MU）");
-            entity.Property(e => e.AliasArrayJson).HasColumnType("jsonb");
-            entity.Property(e => e.City)
-                .HasMaxLength(256)
-                .HasComment("所在城市");
-            entity.Property(e => e.Country).HasMaxLength(256);
-            entity.Property(e => e.FoundedYear).HasComment("成立年份");
             entity.Property(e => e.LeagueId).HasComment("联盟编号");
-            entity.Property(e => e.Name).HasMaxLength(256);
-            entity.Property(e => e.ShortName)
-                .HasMaxLength(256)
-                .HasComment("球队简称");
-            entity.Property(e => e.Stadium)
-                .HasMaxLength(256)
-                .HasComment("主场/球场");
+            entity.Property(e => e.NameEn).HasMaxLength(256);
+            entity.Property(e => e.NameZhCn).HasMaxLength(256);
+            entity.Property(e => e.NameZhTw).HasMaxLength(256);
+            entity.Property(e => e.SourceArrayJson).HasColumnType("jsonb");
         });
 
         OnModelCreatingPartial(modelBuilder);
