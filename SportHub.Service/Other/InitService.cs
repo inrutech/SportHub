@@ -34,22 +34,32 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         }
 
         var teams = new List<Team>();
-        await Task.Delay(5000); // 避免过快请求，防止被封禁
+        await Task.Delay(1000); // 避免过快请求，防止被封禁
         foreach (var league in leagues)
         {
-            if (string.IsNullOrWhiteSpace(league.Name))
+            if (league.Id <= 0)
             {
                 continue;
             }
 
-            var encodedLeagueName = Uri.EscapeDataString(league.Name);
-            var teamsUrl = $"{apiBaseUrl}/{apiKey}/search_all_teams.php?l={encodedLeagueName}";
+            // Use league-id endpoint for full roster; search_all_teams.php is truncated to 10 in current key tier.
+            var teamsUrl = $"{apiBaseUrl}/{apiKey}/lookup_all_teams.php?id={league.Id}";
 
             string teamPayload;
             teamPayload = await client.GetStringAsync(teamsUrl);
 
-            teams.AddRange(ParseTeams(teamPayload));
+            teams.AddRange(ParseTeams(teamPayload, league.Id));
             await Task.Delay(5000); // 避免过快请求，防止被封禁
+        }
+
+        var totalTeamRows = teams.Count;
+        var distinctTeamCount = teams.Select(x => x.Id).Distinct().Count();
+        // Demo/free key may return the same team set for many leagues.
+        if (totalTeamRows > 0 && distinctTeamCount * 2 < totalTeamRows)
+        {
+            throw new InvalidOperationException(
+                $"同步失败：数据源返回了异常重复的球队数据（总行数 {totalTeamRows}，唯一球队 {distinctTeamCount}）。请更换更高权限的 API Key 或数据源。"
+            );
         }
 
         // The API can return duplicate teams across competitions; keep the latest payload by Id.
@@ -111,7 +121,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return result;
     }
 
-    private static List<Team> ParseTeams(string payload)
+    private static List<Team> ParseTeams(string payload, long? leagueId = null)
     {
         var array = ExtractDataArray(payload);
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -133,6 +143,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             result.Add(new Team
             {
                 Id = id,
+                LeagueId = leagueId ?? GetNullableInt64(item, "idLeague", "leagueId", "league_id"),
                 Abbr = GetString(item, "strTeamShort", "abbr", "Abbr", "short", "shortName", "code", "Code"),
                 Name = GetString(item, "strTeam", "name", "Name"),
                 ShortName = GetString(item, "strTeamShort", "shortName", "ShortName", "abbr", "Abbr", "short", "Short"),
@@ -207,6 +218,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             if (existing.TryGetValue(source.Id, out var target))
             {
                 target.Name = source.Name;
+                target.LeagueId = source.LeagueId;
                 target.Abbr = source.Abbr;
                 target.ShortName = source.ShortName;
                 target.Country = source.Country;
