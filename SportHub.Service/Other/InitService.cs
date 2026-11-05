@@ -1,12 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
+using SportHub.Domain.Client.VIC;
+using SportHub.Domain.Client.VIC.Request;
 using SportHub.Repository.Model;
 
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Zero.Core.Result;
@@ -16,10 +14,7 @@ namespace SportHub.Service.Other;
 public class InitService(IServiceProvider provider) : BaseService(provider)
 {
     private const long DefaultSourceCode = (long)global::SourceCode.VIC;
-    private const string DefaultLeagueReferer = "https://site.vic88888.com/site/customize/fa_football_league/view.do";
-    private const string DefaultLeagueUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0";
-    private const string DefaultLeagueCookie = "Authorization=eca4f808-f86e-4838-9fd5-a368eed400e3";
-    private const string DefaultProxyUrl = "http://127.0.0.1:7890";
+    private VICClient VicClient => _provider.GetService<VICClient>()!;
 
     public async Task<SysResult<bool>> SyncLeagueAsync(SyncLeagueRequest request)
     {
@@ -28,131 +23,27 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             throw new InvalidOperationException("同步失败：请求缺少 Token。请在 header 映射字段 __userkeyid__ 对应的 Token 传入请求体。\n");
         }
 
-        var url = $"https://site.vic88888.com/site/customize/fa_football_league/executeService/listData?tabParam=&refFormId=fa_football_league&_t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
-        var leaguesUrl = GetEnvOrDefault("SPORTHUB_SYNC_LEAGUE_API_URL", url);
-
-        var ignoreSslErrors = string.Equals(
-            GetEnvOrDefault("SPORTHUB_SYNC_IGNORE_SSL_ERRORS", "false"),
-            "true",
-            StringComparison.OrdinalIgnoreCase);
-
-        using var client = CreateHttpClient(ignoreSslErrors);
-        client.DefaultRequestHeaders.UserAgent.ParseAdd(DefaultLeagueUserAgent);
-        client.DefaultRequestHeaders.Remove("__userkeyid__");
-        client.DefaultRequestHeaders.Add("__userkeyid__", request.Token);
-
-        var payload = new
+        var payloadResult = await VicClient.GetLeagueListPayloadAsync(new VicLeagueListRequest
         {
-            tabParam = "",
-            filter = "",
-            _pageParam_ = "eyJfb2Zmc2V0XyI6MSwiX2xpbWl0XyI6NTAwMCwiX29yZGVyQnlfIjoiY3JlYXRldGltZV9uYW1lIGRlc2MiLCJfY2FsY0ZpZWxkXyI6ImNvdW50KGlkKSJ9"
-        };
-        using var requestMessage = new HttpRequestMessage(HttpMethod.Post, leaguesUrl)
-        {
-            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
-        };
-        requestMessage.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json; charset=UTF-8");
-        requestMessage.Headers.Accept.Clear();
-        requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        requestMessage.Headers.Remove("Cookie");
-        requestMessage.Headers.Add("Cookie", DefaultLeagueCookie);
-        requestMessage.Headers.Referrer = new Uri(DefaultLeagueReferer);
-        requestMessage.Version = HttpVersion.Version11;
-        requestMessage.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
+            Token = request.Token
+        });
 
-        HttpResponseMessage response;
-        try
+        if (payloadResult.Code != ErrorCode.SYS_SUCCESS || string.IsNullOrWhiteSpace(payloadResult.Result))
         {
-            response = await client.SendAsync(requestMessage);
-            response.EnsureSuccessStatusCode();
-        }
-        catch (HttpRequestException ex)
-        {
-            var detail = FlattenExceptionMessages(ex);
-            throw new InvalidOperationException(
-                $"同步失败：HTTPS 请求异常，目标地址 {leaguesUrl}。详细信息：{detail}",
-                ex);
+            throw new InvalidOperationException($"同步失败：VIC 请求失败。{payloadResult.ErrorDesc}");
         }
 
-        using (response)
+        var leagues = ParseLeaguesFromVic(payloadResult.Result);
+        if (leagues.Count == 0)
         {
-            var leaguePayload = await response.Content.ReadAsStringAsync();
-
-            var leagues = ParseLeaguesFromVic(leaguePayload);
-            if (leagues.Count == 0)
-            {
-                throw new InvalidOperationException("同步失败：未从数据源解析到任何联赛。请检查接口响应或字段映射。");
-            }
-
-            await UpsertLeaguesAsync(leagues);
-
-            await DB.SaveChangesAsync();
+            throw new InvalidOperationException("同步失败：未从数据源解析到任何联赛。请检查接口响应或字段映射。");
         }
+
+        await UpsertLeaguesAsync(leagues);
+
+        await DB.SaveChangesAsync();
 
         return Result(true);
-    }
-
-    private HttpClient CreateHttpClient(bool ignoreSslErrors)
-    {
-        var useProxy = string.Equals(
-            GetEnvOrDefault("SPORTHUB_SYNC_USE_PROXY", "true"),
-            "true",
-            StringComparison.OrdinalIgnoreCase);
-
-        if (!ignoreSslErrors && !useProxy)
-        {
-            return HttpClientFactory.CreateClient();
-        }
-
-        var handler = new HttpClientHandler();
-
-        if (ignoreSslErrors)
-        {
-            handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
-        }
-
-        if (useProxy)
-        {
-            var proxyUrl = GetEnvOrDefault("SPORTHUB_SYNC_PROXY", DefaultProxyUrl);
-            var proxy = new WebProxy(proxyUrl)
-            {
-                BypassProxyOnLocal = false
-            };
-
-            handler.Proxy = proxy;
-            handler.UseProxy = true;
-        }
-
-        return new HttpClient(handler, disposeHandler: true);
-    }
-
-    private static string GetEnvOrDefault(string key, string fallback)
-    {
-        var envValue = Environment.GetEnvironmentVariable(key);
-        if (!string.IsNullOrWhiteSpace(envValue))
-        {
-            return envValue;
-        }
-
-        return fallback;
-    }
-
-    private static string FlattenExceptionMessages(Exception ex)
-    {
-        var messages = new List<string>();
-        Exception? current = ex;
-
-        while (current is not null)
-        {
-            if (!string.IsNullOrWhiteSpace(current.Message))
-            {
-                messages.Add(current.Message.Trim());
-            }
-
-            current = current.InnerException;
-        }
-
-        return string.Join(" | ", messages.Distinct());
     }
 
     private static List<League> ParseLeaguesFromVic(string payload)
