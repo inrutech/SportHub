@@ -86,55 +86,11 @@ public class Startup
 
         builder.Services.AddAssembly("SportHub.Service");
 
-        // #if !DEBUG
-        //         #region Credit
-        //         builder.Services.AddHostedService<CreditMatchWorker>();
-        //         builder.Services.AddHostedService<CreditAwardWorker>();
-        //         builder.Services.AddHostedService<CreditCallbackWorker>();
-        //         builder.Services.AddHostedService<CreditReleaseWorker>();
-        //         builder.Services.AddHostedService<FreezeExpireWorker>();
-        //         // builder.Services.AddHostedService<CreditReservedWorker>();
-        //         #endregion
-
-        //         #region Debit
-        //         builder.Services.AddHostedService<DebitMatchWorker>();
-        //         builder.Services.AddHostedService<DebitAwardWorker>();
-        //         builder.Services.AddHostedService<DebitCallbackWorker>();
-        //         builder.Services.AddHostedService<DebitExpireWorker>();
-        //         builder.Services.AddHostedService<LockExpireWorker>();
-        //         builder.Services.AddHostedService<DebitWarnWorker>();
-        //         #endregion
-
-        //         #region Admin
-        //         builder.Services.AddHostedService<AdminLogWorker>();
-        //         #endregion
-
-        //         #region Merchant
-        //         builder.Services.AddHostedService<MerchantLogWorker>();
-        //         builder.Services.AddHostedService<NoteWorker>();
-        //         builder.Services.AddHostedService<FloatingWorker>();
-        //         builder.Services.AddHostedService<MerchantReportWorker>();
-        //         #endregion
-
-        //         #region User
-        //         builder.Services.AddHostedService<AccountWorker>();
-        //         builder.Services.AddHostedService<UserLogWorker>();
-        //         builder.Services.AddHostedService<TreeWorker>();
-        //         builder.Services.AddHostedService<PaymentWorker>();
-        //         builder.Services.AddHostedService<PaymentDetailWorker>();
-        //         builder.Services.AddHostedService<DepositExpireWorker>();
-        //         builder.Services.AddHostedService<PushWorker>();
-        //         builder.Services.AddHostedService<UserReportWorker>();
-        //         builder.Services.AddHostedService<ActivityWorker>();
-        //         builder.Services.AddHostedService<UserFundsWorker>();
-        //         builder.Services.AddHostedService<UserStatWorker>();
-        //         #endregion
-
-        //         #region Chain
-        //         builder.Services.AddHostedService<BscWorker>();
-        //         builder.Services.AddHostedService<TronWorker>();
-        //         #endregion
-        // #endif
+#if !DEBUG
+                #region Admin
+                builder.Services.AddHostedService<AdminLogWorker>();
+                #endregion
+#endif
     }
 
     /// <summary>
