@@ -82,11 +82,11 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return fallback;
     }
 
-    private static List<League> ParseLeagues(string payload)
+    private static List<Team> ParseLeagues(string payload)
     {
         var array = ExtractDataArray(payload);
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var result = new List<League>(array.Count);
+        var result = new List<Team>(array.Count);
 
         foreach (var node in array)
         {
@@ -101,7 +101,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
                 continue;
             }
 
-            result.Add(new League
+            result.Add(new Team
             {
                 Id = id,
                 Abbr = GetString(item, "strLeagueAlternate", "abbr", "Abbr", "short", "shortName", "code", "Code"),
@@ -175,7 +175,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return result;
     }
 
-    private async Task UpsertLeaguesAsync(List<League> leagues)
+    private async Task UpsertLeaguesAsync(List<Team> leagues)
     {
         if (leagues.Count == 0)
         {
