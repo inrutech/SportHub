@@ -29,6 +29,7 @@ public class Startup
         ["remote"] = "远程 API",
         ["admin"] = "后台 API",
         ["client"] = "终端 API",
+        ["other"] = "其他 API",
     };
 
     private static void ConfigureBaseServices(WebApplicationBuilder builder)
@@ -88,7 +89,7 @@ public class Startup
 
 #if !DEBUG
                 #region Admin
-                builder.Services.AddHostedService<AdminLogWorker>();
+                // builder.Services.AddHostedService<AdminLogWorker>();
                 #endregion
 #endif
     }

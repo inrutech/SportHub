@@ -3,10 +3,6 @@
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'LeagueCodeEnum') THEN
-        CREATE TYPE "LeagueCodeEnum" AS ENUM ('LEAGUE', 'CUP', 'SUPER', 'INTERNATIONAL');
-    END IF;
-
     IF to_regclass('"League"') IS NULL THEN
         RAISE EXCEPTION 'Table "League" not found.';
     END IF;
@@ -18,10 +14,35 @@ BEGIN
     ALTER TABLE "League"
         ADD COLUMN IF NOT EXISTS "Abbr" varchar(64),
         ADD COLUMN IF NOT EXISTS "CountryCode" varchar(16),
-        ADD COLUMN IF NOT EXISTS "LeagueCode" "LeagueCodeEnum",
         ADD COLUMN IF NOT EXISTS "Region" varchar(64),
         ADD COLUMN IF NOT EXISTS "Tier" integer,
         ADD COLUMN IF NOT EXISTS "MetaJson" jsonb;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'League' AND column_name = 'LeagueCode'
+    ) THEN
+        ALTER TABLE "League" ADD COLUMN "LeagueCode" bigint;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'League' AND column_name = 'LeagueCode'
+          AND udt_name <> 'int8'
+    ) THEN
+        ALTER TABLE "League"
+            ALTER COLUMN "LeagueCode" TYPE bigint
+            USING CASE UPPER("LeagueCode"::text)
+                WHEN 'LEAGUE' THEN 1
+                WHEN 'CUP' THEN 2
+                WHEN 'SUPER' THEN 3
+                WHEN 'SUPERCUP' THEN 3
+                WHEN 'INTERNATIONAL' THEN 4
+                ELSE 0
+            END;
+    END IF;
 
     IF EXISTS (
         SELECT 1
@@ -30,17 +51,21 @@ BEGIN
     ) THEN
         UPDATE "League"
         SET "LeagueCode" = CASE UPPER("LeagueType")
-            WHEN 'LEAGUE' THEN 'LEAGUE'::"LeagueCodeEnum"
-            WHEN 'CUP' THEN 'CUP'::"LeagueCodeEnum"
-            WHEN 'SUPER' THEN 'SUPER'::"LeagueCodeEnum"
-            WHEN 'SUPERCUP' THEN 'SUPER'::"LeagueCodeEnum"
-            WHEN 'INTERNATIONAL' THEN 'INTERNATIONAL'::"LeagueCodeEnum"
-            ELSE "LeagueCode"
+            WHEN 'LEAGUE' THEN 1
+            WHEN 'CUP' THEN 2
+            WHEN 'SUPER' THEN 3
+            WHEN 'SUPERCUP' THEN 3
+            WHEN 'INTERNATIONAL' THEN 4
+            ELSE COALESCE("LeagueCode", 0)
         END
         WHERE "LeagueType" IS NOT NULL;
 
         ALTER TABLE "League" DROP COLUMN IF EXISTS "LeagueType";
     END IF;
+
+    ALTER TABLE "League" ALTER COLUMN "LeagueCode" SET DEFAULT 0;
+    UPDATE "League" SET "LeagueCode" = 0 WHERE "LeagueCode" IS NULL;
+    ALTER TABLE "League" ALTER COLUMN "LeagueCode" SET NOT NULL;
 
     ALTER TABLE "League"
         DROP COLUMN IF EXISTS "StartSeason",
@@ -66,7 +91,7 @@ BEGIN
 
     COMMENT ON COLUMN "League"."Abbr" IS '联赛缩写（如 EPL、UCL）';
     COMMENT ON COLUMN "League"."CountryCode" IS '国家代码（ISO/FIFA，可空）';
-    COMMENT ON COLUMN "League"."LeagueCode" IS '联赛代码枚举（LEAGUE/CUP/SUPER/INTERNATIONAL）';
+    COMMENT ON COLUMN "League"."LeagueCode" IS '联赛代码（int64）：0=None,1=LEAGUE,2=CUP,3=SUPER,4=INTERNATIONAL';
     COMMENT ON COLUMN "League"."Region" IS '区域/洲别（如 Europe、Asia）';
     COMMENT ON COLUMN "League"."Tier" IS '联赛层级（1=顶级联赛）';
     COMMENT ON COLUMN "League"."MetaJson" IS '扩展元数据（jsonb）';

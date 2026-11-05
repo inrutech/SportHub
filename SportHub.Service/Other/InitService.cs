@@ -27,6 +27,11 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         var leaguePayload = await client.GetStringAsync(leaguesUrl);
 
         var leagues = ParseLeagues(leaguePayload);
+        if (leagues.Count == 0)
+        {
+            throw new InvalidOperationException("同步失败：未从数据源解析到任何联赛。请检查接口响应或字段映射。");
+        }
+
         var teams = new List<Team>();
 
         foreach (var league in leagues)
@@ -90,7 +95,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
                 continue;
             }
 
-            var id = GetInt64(item, "id", "Id", "leagueId", "league_id");
+            var id = GetInt64(item, "idLeague", "id", "Id", "leagueId", "league_id");
             if (id <= 0)
             {
                 continue;
@@ -136,7 +141,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
                 continue;
             }
 
-            var id = GetInt64(item, "id", "Id", "teamId", "team_id");
+            var id = GetInt64(item, "idTeam", "id", "Id", "teamId", "team_id");
             if (id <= 0)
             {
                 continue;
@@ -449,22 +454,22 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return null;
     }
 
-    private static string? NormalizeLeagueCode(string? value)
+    private static long NormalizeLeagueCode(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return null;
+            return (long)global::LeagueCode.None;
         }
 
         var normalized = value.Trim().ToUpperInvariant();
         return normalized switch
         {
-            "SOCCER" => "LEAGUE",
-            "LEAGUE" or "LIGA" or "DIVISION" => "LEAGUE",
-            "CUP" => "CUP",
-            "SUPER" or "SUPERCUP" => "SUPER",
-            "INTERNATIONAL" => "INTERNATIONAL",
-            _ => normalized
+            "SOCCER" => (long)global::LeagueCode.LEAGUE,
+            "LEAGUE" or "LIGA" or "DIVISION" => (long)global::LeagueCode.LEAGUE,
+            "CUP" => (long)global::LeagueCode.CUP,
+            "SUPER" or "SUPERCUP" => (long)global::LeagueCode.SUPER,
+            "INTERNATIONAL" => (long)global::LeagueCode.INTERNATIONAL,
+            _ => (long)global::LeagueCode.None
         };
     }
 }
