@@ -10,9 +10,9 @@ public partial class League
     [Timestamp] public uint _version { get; set; }
 
     [NotMapped]
-    public List<AliasInfo>? AliasArrayDetail
+    public Dictionary<long, string>? AliasArray
     {
-        get => AliasArray?.DeserializeJson<List<AliasInfo>>();
-        set => AliasArray = value?.ToJson();
+        get => AliasArrayJson?.DeserializeJson<Dictionary<long, string>>();
+        set => AliasArrayJson = value?.ToJson();
     }
 }

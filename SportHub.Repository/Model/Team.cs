@@ -36,11 +36,11 @@ public partial class Team
     /// </summary>
     public string? Stadium { get; set; }
 
-    public string? AliasArray { get; set; }
-
     public long Flag { get; set; }
 
     public long CreatedTime { get; set; }
 
     public long UpdatedTime { get; set; }
+
+    public string? AliasArrayJson { get; set; }
 }

@@ -28,7 +28,7 @@ public partial class DBContext : DbContext
             entity.HasKey(e => e.Id).HasName("StandardLeagues_pkey");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.AliasArray).HasColumnType("jsonb");
+            entity.Property(e => e.AliasArrayJson).HasColumnType("jsonb");
             entity.Property(e => e.LeagueCode).HasComment("联赛代码枚举（LEAGUE/CUP/SUPER/INTERNATIONAL）");
             entity.Property(e => e.Name).HasMaxLength(256);
         });
@@ -95,7 +95,7 @@ public partial class DBContext : DbContext
             entity.Property(e => e.Abbr)
                 .HasMaxLength(256)
                 .HasComment("球队缩写（如 PSG、MU）");
-            entity.Property(e => e.AliasArray).HasColumnType("jsonb");
+            entity.Property(e => e.AliasArrayJson).HasColumnType("jsonb");
             entity.Property(e => e.City)
                 .HasMaxLength(256)
                 .HasComment("所在城市");
