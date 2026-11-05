@@ -22,16 +22,6 @@ public partial class Team
     public string? ShortName { get; set; }
 
     /// <summary>
-    /// 球队英文名
-    /// </summary>
-    public string? EnglishName { get; set; }
-
-    /// <summary>
-    /// 国家代码（ISO/FIFA，可空）
-    /// </summary>
-    public string? CountryCode { get; set; }
-
-    /// <summary>
     /// 所在城市
     /// </summary>
     public string? City { get; set; }
@@ -45,11 +35,6 @@ public partial class Team
     /// 主场/球场
     /// </summary>
     public string? Stadium { get; set; }
-
-    /// <summary>
-    /// 扩展元数据（jsonb）
-    /// </summary>
-    public string? MetaJson { get; set; }
 
     public string? AliasArray { get; set; }
 

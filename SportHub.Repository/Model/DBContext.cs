@@ -28,22 +28,9 @@ public partial class DBContext : DbContext
             entity.HasKey(e => e.Id).HasName("StandardLeagues_pkey");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.Abbr)
-                .HasMaxLength(256)
-                .HasComment("联赛缩写（如 EPL、UCL）");
             entity.Property(e => e.AliasArray).HasColumnType("jsonb");
-            entity.Property(e => e.Country).HasMaxLength(256);
-            entity.Property(e => e.CountryCode)
-                .HasMaxLength(256)
-                .HasComment("国家代码（ISO/FIFA，可空）");
             entity.Property(e => e.LeagueCode).HasComment("联赛代码枚举（LEAGUE/CUP/SUPER/INTERNATIONAL）");
-            entity.Property(e => e.MetaJson)
-                .HasComment("扩展元数据（jsonb）")
-                .HasColumnType("jsonb");
             entity.Property(e => e.Name).HasMaxLength(256);
-            entity.Property(e => e.Region)
-                .HasMaxLength(256)
-                .HasComment("区域/洲别（如 Europe、Asia）");
         });
 
         modelBuilder.Entity<Order>(entity =>
@@ -113,16 +100,7 @@ public partial class DBContext : DbContext
                 .HasMaxLength(256)
                 .HasComment("所在城市");
             entity.Property(e => e.Country).HasMaxLength(256);
-            entity.Property(e => e.CountryCode)
-                .HasMaxLength(256)
-                .HasComment("国家代码（ISO/FIFA，可空）");
-            entity.Property(e => e.EnglishName)
-                .HasMaxLength(256)
-                .HasComment("球队英文名");
             entity.Property(e => e.FoundedYear).HasComment("成立年份");
-            entity.Property(e => e.MetaJson)
-                .HasComment("扩展元数据（jsonb）")
-                .HasColumnType("jsonb");
             entity.Property(e => e.Name).HasMaxLength(256);
             entity.Property(e => e.ShortName)
                 .HasMaxLength(256)
