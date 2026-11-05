@@ -101,6 +101,7 @@ public partial class DBContext : DbContext
                 .HasComment("所在城市");
             entity.Property(e => e.Country).HasMaxLength(256);
             entity.Property(e => e.FoundedYear).HasComment("成立年份");
+            entity.Property(e => e.LeagueId).HasComment("联盟编号");
             entity.Property(e => e.Name).HasMaxLength(256);
             entity.Property(e => e.ShortName)
                 .HasMaxLength(256)

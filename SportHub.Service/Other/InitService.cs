@@ -13,6 +13,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
 {
     private const string DefaultApiBaseUrl = "https://www.thesportsdb.com/api/v1/json";
     private const string DefaultApiKey = "123";
+    private const long DefaultSourceCode = (long)global::SourceCode.IGK;
 
     public async Task<SysResult<bool>> SyncLeagueAsync()
     {
@@ -33,7 +34,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         }
 
         var teams = new List<Team>();
-
+        await Task.Delay(5000); // 避免过快请求，防止被封禁
         foreach (var league in leagues)
         {
             if (string.IsNullOrWhiteSpace(league.Name))
@@ -45,16 +46,10 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             var teamsUrl = $"{apiBaseUrl}/{apiKey}/search_all_teams.php?l={encodedLeagueName}";
 
             string teamPayload;
-            try
-            {
-                teamPayload = await client.GetStringAsync(teamsUrl);
-            }
-            catch
-            {
-                continue;
-            }
+            teamPayload = await client.GetStringAsync(teamsUrl);
 
             teams.AddRange(ParseTeams(teamPayload));
+            await Task.Delay(5000); // 避免过快请求，防止被封禁
         }
 
         // The API can return duplicate teams across competitions; keep the latest payload by Id.
@@ -82,11 +77,11 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return fallback;
     }
 
-    private static List<Team> ParseLeagues(string payload)
+    private static List<League> ParseLeagues(string payload)
     {
         var array = ExtractDataArray(payload);
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var result = new List<Team>(array.Count);
+        var result = new List<League>(array.Count);
 
         foreach (var node in array)
         {
@@ -101,23 +96,12 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
                 continue;
             }
 
-            result.Add(new Team
+            result.Add(new League
             {
                 Id = id,
-                Abbr = GetString(item, "strLeagueAlternate", "abbr", "Abbr", "short", "shortName", "code", "Code"),
                 Name = GetString(item, "strLeague", "name", "Name"),
-                CountryCode = GetString(item, "strCountryCode", "countryCode", "country_code", "countryIso", "country_iso", "fifaCode", "fifa_code"),
                 LeagueCode = NormalizeLeagueCode(GetString(item, "strSport", "leagueCode", "LeagueCode", "leagueType", "LeagueType", "type", "Type", "kind", "Kind", "category", "Category")),
-                Country = GetString(item, "strCountry", "country", "Country"),
-                Region = GetString(item, "region", "Region", "continent", "confederation"),
-                AliasArray = BuildAliasDictionary(
-                    [
-                        ("thesportsdb", GetString(item, "idLeague")),
-                        ("espn", GetString(item, "idESPN")),
-                        ("apifootball", GetString(item, "idAPIfootball"))
-                    ],
-                    [GetString(item, "strLeagueAlternate"), GetString(item, "strLeague")]),
-                MetaJson = GetObjectJson(item, "meta", "metadata", "extra"),
+                AliasArray = BuildAliasDictionary(DefaultSourceCode, GetString(item, "idLeague")),
                 Flag = GetInt64(item, ["flag", "Flag", "status", "Status"], 1),
                 CreatedTime = GetInt64(item, ["createdTime", "CreatedTime", "created_at"], now),
                 UpdatedTime = GetInt64(item, ["updatedTime", "UpdatedTime", "updated_at"], now)
@@ -152,20 +136,11 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
                 Abbr = GetString(item, "strTeamShort", "abbr", "Abbr", "short", "shortName", "code", "Code"),
                 Name = GetString(item, "strTeam", "name", "Name"),
                 ShortName = GetString(item, "strTeamShort", "shortName", "ShortName", "abbr", "Abbr", "short", "Short"),
-                EnglishName = GetString(item, "englishName", "EnglishName", "enName", "en_name"),
-                CountryCode = GetString(item, "countryCode", "country_code", "countryIso", "country_iso", "fifaCode", "fifa_code"),
                 Country = GetString(item, "strCountry", "country", "Country"),
                 City = GetString(item, "strLocation", "city", "City", "location", "Location"),
                 FoundedYear = GetNullableInt64(item, "intFormedYear", "foundedYear", "FoundedYear", "founded", "Founded"),
                 Stadium = GetString(item, "strStadium", "stadium", "Stadium", "ground", "Ground"),
-                AliasArray = BuildAliasDictionary(
-                    [
-                        ("thesportsdb", GetString(item, "idTeam")),
-                        ("espn", GetString(item, "idESPN")),
-                        ("apifootball", GetString(item, "idAPIfootball"))
-                    ],
-                    [GetString(item, "strTeamAlternate"), GetString(item, "strTeam")]),
-                MetaJson = GetObjectJson(item, "meta", "metadata", "extra"),
+                AliasArray = BuildAliasDictionary(DefaultSourceCode, GetString(item, "idTeam")),
                 Flag = GetInt64(item, ["flag", "Flag", "status", "Status"], 1),
                 CreatedTime = GetInt64(item, ["createdTime", "CreatedTime", "created_at"], now),
                 UpdatedTime = GetInt64(item, ["updatedTime", "UpdatedTime", "updated_at"], now)
@@ -175,7 +150,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return result;
     }
 
-    private async Task UpsertLeaguesAsync(List<Team> leagues)
+    private async Task UpsertLeaguesAsync(List<League> leagues)
     {
         if (leagues.Count == 0)
         {
@@ -193,13 +168,8 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             if (existing.TryGetValue(source.Id, out var target))
             {
                 target.Name = source.Name;
-                target.Abbr = source.Abbr;
-                target.CountryCode = source.CountryCode;
                 target.LeagueCode = source.LeagueCode;
-                target.Country = source.Country;
-                target.Region = source.Region;
                 target.AliasArray = source.AliasArray;
-                target.MetaJson = source.MetaJson;
                 target.Flag = source.Flag;
                 target.UpdatedTime = now;
                 continue;
@@ -239,14 +209,11 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
                 target.Name = source.Name;
                 target.Abbr = source.Abbr;
                 target.ShortName = source.ShortName;
-                target.EnglishName = source.EnglishName;
-                target.CountryCode = source.CountryCode;
                 target.Country = source.Country;
                 target.City = source.City;
                 target.FoundedYear = source.FoundedYear;
                 target.Stadium = source.Stadium;
                 target.AliasArray = source.AliasArray;
-                target.MetaJson = source.MetaJson;
                 target.Flag = source.Flag;
                 target.UpdatedTime = now;
                 continue;
@@ -408,48 +375,17 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return null;
     }
 
-    private static string BuildAliasDictionary(
-        IEnumerable<(string platform, string? key)> keys,
-        IEnumerable<string?> aliases)
+    private static Dictionary<long, string>? BuildAliasDictionary(long sourceCode, string? keyId)
     {
-        var keyObj = new JsonObject();
-        foreach (var (platform, key) in keys)
+        if (sourceCode <= 0 || string.IsNullOrWhiteSpace(keyId))
         {
-            if (string.IsNullOrWhiteSpace(platform) || string.IsNullOrWhiteSpace(key))
-            {
-                continue;
-            }
-
-            keyObj[platform] = key;
+            return null;
         }
 
-        var aliasArray = new JsonArray();
-        foreach (var alias in aliases.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()).Distinct())
+        return new Dictionary<long, string>
         {
-            aliasArray.Add(alias);
-        }
-
-        var root = new JsonObject
-        {
-            ["keys"] = keyObj,
-            ["aliases"] = aliasArray
+            [sourceCode] = keyId.Trim()
         };
-
-        return root.ToJsonString();
-    }
-
-    private static string? GetObjectJson(JsonObject source, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            var node = source[key];
-            if (node is JsonObject or JsonArray)
-            {
-                return node.ToJsonString();
-            }
-        }
-
-        return null;
     }
 
     private static long NormalizeLeagueCode(string? value)

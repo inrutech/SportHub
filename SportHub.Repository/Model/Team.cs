@@ -43,4 +43,9 @@ public partial class Team
     public long UpdatedTime { get; set; }
 
     public string? AliasArrayJson { get; set; }
+
+    /// <summary>
+    /// 联盟编号
+    /// </summary>
+    public long? LeagueId { get; set; }
 }
