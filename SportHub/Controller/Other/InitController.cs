@@ -8,15 +8,10 @@ namespace SportHub.Controller.Other;
 
 public class InitController(InitService service) : BaseController
 {
-    [HttpPost("sync")]
-    public Task<SysResult<bool>> SyncAsync()
-    {
-        return service.SyncLeagueAsync();
-    }
 
     [HttpPost("sync-league")]
-    public Task<SysResult<bool>> SyncLeagueAsync()
+    public Task<SysResult<bool>> SyncLeagueAsync(SyncLeagueRequest request)
     {
-        return service.SyncLeagueAsync();
+        return service.SyncLeagueAsync(request);
     }
 }

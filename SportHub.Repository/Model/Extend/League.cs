@@ -12,7 +12,7 @@ public partial class League
     [NotMapped]
     public Dictionary<long, string>? AliasArray
     {
-        get => AliasArrayJson?.DeserializeJson<Dictionary<long, string>>();
-        set => AliasArrayJson = value?.ToJson();
+        get => SourceArrayJson?.DeserializeJson<Dictionary<long, string>>();
+        set => SourceArrayJson = value?.ToJson();
     }
 }

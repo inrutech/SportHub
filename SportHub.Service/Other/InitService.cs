@@ -2,6 +2,10 @@ using Microsoft.EntityFrameworkCore;
 
 using SportHub.Repository.Model;
 
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -11,69 +15,115 @@ namespace SportHub.Service.Other;
 
 public class InitService(IServiceProvider provider) : BaseService(provider)
 {
-    private const string DefaultApiBaseUrl = "https://www.thesportsdb.com/api/v1/json";
-    private const string DefaultApiKey = "123";
-    private const long DefaultSourceCode = (long)global::SourceCode.IGK;
+    private const long DefaultSourceCode = (long)global::SourceCode.VIC;
+    private const string DefaultLeagueReferer = "https://site.vic88888.com/site/customize/fa_football_league/view.do";
+    private const string DefaultLeagueUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0";
+    private const string DefaultLeagueCookie = "Authorization=eca4f808-f86e-4838-9fd5-a368eed400e3";
+    private const string DefaultProxyUrl = "http://127.0.0.1:7890";
 
-    public async Task<SysResult<bool>> SyncLeagueAsync()
+    public async Task<SysResult<bool>> SyncLeagueAsync(SyncLeagueRequest request)
     {
-        var apiBaseUrl = GetEnvOrDefault("SPORTHUB_SYNC_API_BASEURL", DefaultApiBaseUrl).TrimEnd('/');
-        var apiKey = GetEnvOrDefault("SPORTHUB_SYNC_API_KEY", DefaultApiKey);
-
-        var leaguesUrl = $"{apiBaseUrl}/{apiKey}/all_leagues.php";
-
-        var client = HttpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("SportHub/1.0");
-
-        var leaguePayload = await client.GetStringAsync(leaguesUrl);
-
-        var leagues = ParseLeagues(leaguePayload);
-        if (leagues.Count == 0)
+        if (string.IsNullOrWhiteSpace(request?.Token))
         {
-            throw new InvalidOperationException("同步失败：未从数据源解析到任何联赛。请检查接口响应或字段映射。");
+            throw new InvalidOperationException("同步失败：请求缺少 Token。请在 header 映射字段 __userkeyid__ 对应的 Token 传入请求体。\n");
         }
 
-        var teams = new List<Team>();
-        await Task.Delay(1000); // 避免过快请求，防止被封禁
-        foreach (var league in leagues)
+        var url = $"https://site.vic88888.com/site/customize/fa_football_league/executeService/listData?tabParam=&refFormId=fa_football_league&_t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        var leaguesUrl = GetEnvOrDefault("SPORTHUB_SYNC_LEAGUE_API_URL", url);
+
+        var ignoreSslErrors = string.Equals(
+            GetEnvOrDefault("SPORTHUB_SYNC_IGNORE_SSL_ERRORS", "false"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
+        using var client = CreateHttpClient(ignoreSslErrors);
+        client.DefaultRequestHeaders.UserAgent.ParseAdd(DefaultLeagueUserAgent);
+        client.DefaultRequestHeaders.Remove("__userkeyid__");
+        client.DefaultRequestHeaders.Add("__userkeyid__", request.Token);
+
+        var payload = new
         {
-            if (league.Id <= 0)
+            tabParam = "",
+            filter = "",
+            _pageParam_ = "eyJfb2Zmc2V0XyI6MSwiX2xpbWl0XyI6NTAwMCwiX29yZGVyQnlfIjoiY3JlYXRldGltZV9uYW1lIGRlc2MiLCJfY2FsY0ZpZWxkXyI6ImNvdW50KGlkKSJ9"
+        };
+        using var requestMessage = new HttpRequestMessage(HttpMethod.Post, leaguesUrl)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+        };
+        requestMessage.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json; charset=UTF-8");
+        requestMessage.Headers.Accept.Clear();
+        requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        requestMessage.Headers.Remove("Cookie");
+        requestMessage.Headers.Add("Cookie", DefaultLeagueCookie);
+        requestMessage.Headers.Referrer = new Uri(DefaultLeagueReferer);
+        requestMessage.Version = HttpVersion.Version11;
+        requestMessage.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(requestMessage);
+            response.EnsureSuccessStatusCode();
+        }
+        catch (HttpRequestException ex)
+        {
+            var detail = FlattenExceptionMessages(ex);
+            throw new InvalidOperationException(
+                $"同步失败：HTTPS 请求异常，目标地址 {leaguesUrl}。详细信息：{detail}",
+                ex);
+        }
+
+        using (response)
+        {
+            var leaguePayload = await response.Content.ReadAsStringAsync();
+
+            var leagues = ParseLeaguesFromVic(leaguePayload);
+            if (leagues.Count == 0)
             {
-                continue;
+                throw new InvalidOperationException("同步失败：未从数据源解析到任何联赛。请检查接口响应或字段映射。");
             }
 
-            // Use league-id endpoint for full roster; search_all_teams.php is truncated to 10 in current key tier.
-            var teamsUrl = $"{apiBaseUrl}/{apiKey}/lookup_all_teams.php?id={league.Id}";
+            await UpsertLeaguesAsync(leagues);
 
-            string teamPayload;
-            teamPayload = await client.GetStringAsync(teamsUrl);
-
-            teams.AddRange(ParseTeams(teamPayload, league.Id));
-            await Task.Delay(5000); // 避免过快请求，防止被封禁
+            await DB.SaveChangesAsync();
         }
-
-        var totalTeamRows = teams.Count;
-        var distinctTeamCount = teams.Select(x => x.Id).Distinct().Count();
-        // Demo/free key may return the same team set for many leagues.
-        if (totalTeamRows > 0 && distinctTeamCount * 2 < totalTeamRows)
-        {
-            throw new InvalidOperationException(
-                $"同步失败：数据源返回了异常重复的球队数据（总行数 {totalTeamRows}，唯一球队 {distinctTeamCount}）。请更换更高权限的 API Key 或数据源。"
-            );
-        }
-
-        // The API can return duplicate teams across competitions; keep the latest payload by Id.
-        teams = teams
-            .GroupBy(x => x.Id)
-            .Select(g => g.Last())
-            .ToList();
-
-        await UpsertLeaguesAsync(leagues);
-        await UpsertTeamsAsync(teams);
-
-        await DB.SaveChangesAsync();
 
         return Result(true);
+    }
+
+    private HttpClient CreateHttpClient(bool ignoreSslErrors)
+    {
+        var useProxy = string.Equals(
+            GetEnvOrDefault("SPORTHUB_SYNC_USE_PROXY", "true"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
+        if (!ignoreSslErrors && !useProxy)
+        {
+            return HttpClientFactory.CreateClient();
+        }
+
+        var handler = new HttpClientHandler();
+
+        if (ignoreSslErrors)
+        {
+            handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+        }
+
+        if (useProxy)
+        {
+            var proxyUrl = GetEnvOrDefault("SPORTHUB_SYNC_PROXY", DefaultProxyUrl);
+            var proxy = new WebProxy(proxyUrl)
+            {
+                BypassProxyOnLocal = false
+            };
+
+            handler.Proxy = proxy;
+            handler.UseProxy = true;
+        }
+
+        return new HttpClient(handler, disposeHandler: true);
     }
 
     private static string GetEnvOrDefault(string key, string fallback)
@@ -87,9 +137,27 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return fallback;
     }
 
-    private static List<League> ParseLeagues(string payload)
+    private static string FlattenExceptionMessages(Exception ex)
     {
-        var array = ExtractDataArray(payload);
+        var messages = new List<string>();
+        Exception? current = ex;
+
+        while (current is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message))
+            {
+                messages.Add(current.Message.Trim());
+            }
+
+            current = current.InnerException;
+        }
+
+        return string.Join(" | ", messages.Distinct());
+    }
+
+    private static List<League> ParseLeaguesFromVic(string payload)
+    {
+        var array = ExtractVicListData(payload);
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var result = new List<League>(array.Count);
 
@@ -100,7 +168,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
                 continue;
             }
 
-            var id = GetInt64(item, "idLeague", "id", "Id", "leagueId", "league_id");
+            var id = GetInt64(item, "id", "keyid", "Id", "league_id", "leagueId");
             if (id <= 0)
             {
                 continue;
@@ -109,52 +177,21 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             result.Add(new League
             {
                 Id = id,
-                Name = GetString(item, "strLeague", "name", "Name"),
-                LeagueCode = NormalizeLeagueCode(GetString(item, "strSport", "leagueCode", "LeagueCode", "leagueType", "LeagueType", "type", "Type", "kind", "Kind", "category", "Category")),
-                AliasArray = BuildAliasDictionary(DefaultSourceCode, GetString(item, "idLeague")),
+                NameEn = GetString(item, "name_en"),
+                NameZhCn = GetString(item, "name_chs"),
+                NameZhTw = GetString(item, "name_cht"),
+                ShortNameEn = GetString(item, "name_en_short"),
+                ShortNameZhCn = GetString(item, "name_chs_short"),
+                ShortNameZhTw = GetString(item, "name_cht_short"),
+                CountryId = GetNullableInt64(item, "country_id"),
+                CountryEn = GetString(item, "country_en"),
+                CountryZhCn = GetString(item, "country_cn"),
+                CountryZhTw = GetString(item, "country_cht", "country_cn"),
+                LeagueCode = NormalizeLeagueCodeFromType(GetString(item, "type")),
+                AliasArray = BuildAliasDictionary(DefaultSourceCode, GetString(item, "keyid", "id")),
                 Flag = GetInt64(item, ["flag", "Flag", "status", "Status"], 1),
-                CreatedTime = GetInt64(item, ["createdTime", "CreatedTime", "created_at"], now),
-                UpdatedTime = GetInt64(item, ["updatedTime", "UpdatedTime", "updated_at"], now)
-            });
-        }
-
-        return result;
-    }
-
-    private static List<Team> ParseTeams(string payload, long? leagueId = null)
-    {
-        var array = ExtractDataArray(payload);
-        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var result = new List<Team>(array.Count);
-
-        foreach (var node in array)
-        {
-            if (node is not JsonObject item)
-            {
-                continue;
-            }
-
-            var id = GetInt64(item, "idTeam", "id", "Id", "teamId", "team_id");
-            if (id <= 0)
-            {
-                continue;
-            }
-
-            result.Add(new Team
-            {
-                Id = id,
-                LeagueId = leagueId ?? GetNullableInt64(item, "idLeague", "leagueId", "league_id"),
-                Abbr = GetString(item, "strTeamShort", "abbr", "Abbr", "short", "shortName", "code", "Code"),
-                Name = GetString(item, "strTeam", "name", "Name"),
-                ShortName = GetString(item, "strTeamShort", "shortName", "ShortName", "abbr", "Abbr", "short", "Short"),
-                Country = GetString(item, "strCountry", "country", "Country"),
-                City = GetString(item, "strLocation", "city", "City", "location", "Location"),
-                FoundedYear = GetNullableInt64(item, "intFormedYear", "foundedYear", "FoundedYear", "founded", "Founded"),
-                Stadium = GetString(item, "strStadium", "stadium", "Stadium", "ground", "Ground"),
-                AliasArray = BuildAliasDictionary(DefaultSourceCode, GetString(item, "idTeam")),
-                Flag = GetInt64(item, ["flag", "Flag", "status", "Status"], 1),
-                CreatedTime = GetInt64(item, ["createdTime", "CreatedTime", "created_at"], now),
-                UpdatedTime = GetInt64(item, ["updatedTime", "UpdatedTime", "updated_at"], now)
+                CreatedTime = GetInt64(item, ["createtime", "createdTime", "CreatedTime", "created_at"], now),
+                UpdatedTime = GetInt64(item, ["updatetime", "updatedTime", "UpdatedTime", "updated_at"], now)
             });
         }
 
@@ -178,7 +215,16 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         {
             if (existing.TryGetValue(source.Id, out var target))
             {
-                target.Name = source.Name;
+                target.NameEn = source.NameEn;
+                target.NameZhCn = source.NameZhCn;
+                target.NameZhTw = source.NameZhTw;
+                target.ShortNameEn = source.ShortNameEn;
+                target.ShortNameZhCn = source.ShortNameZhCn;
+                target.ShortNameZhTw = source.ShortNameZhTw;
+                target.CountryId = source.CountryId;
+                target.CountryEn = source.CountryEn;
+                target.CountryZhCn = source.CountryZhCn;
+                target.CountryZhTw = source.CountryZhTw;
                 target.LeagueCode = source.LeagueCode;
                 target.AliasArray = source.AliasArray;
                 target.Flag = source.Flag;
@@ -200,72 +246,25 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         }
     }
 
-    private async Task UpsertTeamsAsync(List<Team> teams)
-    {
-        if (teams.Count == 0)
-        {
-            return;
-        }
-
-        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var ids = teams.Select(x => x.Id).Distinct().ToList();
-        var existing = await DB.Team
-            .Where(x => ids.Contains(x.Id))
-            .ToDictionaryAsync(x => x.Id);
-
-        foreach (var source in teams)
-        {
-            if (existing.TryGetValue(source.Id, out var target))
-            {
-                target.Name = source.Name;
-                target.LeagueId = source.LeagueId;
-                target.Abbr = source.Abbr;
-                target.ShortName = source.ShortName;
-                target.Country = source.Country;
-                target.City = source.City;
-                target.FoundedYear = source.FoundedYear;
-                target.Stadium = source.Stadium;
-                target.AliasArray = source.AliasArray;
-                target.Flag = source.Flag;
-                target.UpdatedTime = now;
-                continue;
-            }
-
-            if (source.CreatedTime <= 0)
-            {
-                source.CreatedTime = now;
-            }
-
-            if (source.UpdatedTime <= 0)
-            {
-                source.UpdatedTime = now;
-            }
-
-            await DB.Team.AddAsync(source);
-        }
-    }
-
-    private static JsonArray ExtractDataArray(string payload)
+    private static JsonArray ExtractVicListData(string payload)
     {
         var node = JsonNode.Parse(payload);
-        if (node is JsonArray rootArray)
-        {
-            return rootArray;
-        }
 
         if (node is JsonObject rootObject)
         {
-            var candidates = new[] { "data", "items", "list", "leagues", "teams", "result" };
-            foreach (var name in candidates)
+            var code = GetInt64(rootObject, ["code"], 0);
+            if (code != 200)
             {
-                if (rootObject[name] is JsonArray dataArray)
-                {
-                    return dataArray;
-                }
+                throw new InvalidOperationException($"同步失败：VIC 接口返回 code={code}。\n");
+            }
+
+            if (rootObject["listData"] is JsonArray dataArray)
+            {
+                return dataArray;
             }
         }
 
-        throw new InvalidOperationException("数据格式不正确，未找到数组节点。");
+        throw new InvalidOperationException("同步失败：VIC 返回格式不正确，未找到 listData 数组。\n");
     }
 
     private static string? GetString(JsonObject source, params string[] keys)
@@ -349,44 +348,6 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return null;
     }
 
-    private static string? GetAliasArray(JsonObject source, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            var node = source[key];
-            if (node is null)
-            {
-                continue;
-            }
-
-            if (node is JsonArray array)
-            {
-                return array.ToJsonString();
-            }
-
-            if (node is JsonValue value && value.TryGetValue<string>(out var text))
-            {
-                if (string.IsNullOrWhiteSpace(text))
-                {
-                    return null;
-                }
-
-                var trimmed = text.Trim();
-                if ((trimmed.StartsWith("[") && trimmed.EndsWith("]")) ||
-                    (trimmed.StartsWith("{") && trimmed.EndsWith("}")))
-                {
-                    return trimmed;
-                }
-
-                return JsonSerializer.Serialize(new[] { trimmed });
-            }
-
-            return node.ToJsonString();
-        }
-
-        return null;
-    }
-
     private static Dictionary<long, string>? BuildAliasDictionary(long sourceCode, string? keyId)
     {
         if (sourceCode <= 0 || string.IsNullOrWhiteSpace(keyId))
@@ -400,21 +361,18 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         };
     }
 
-    private static long NormalizeLeagueCode(string? value)
+    private static long NormalizeLeagueCodeFromType(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             return (long)global::LeagueCode.None;
         }
 
-        var normalized = value.Trim().ToUpperInvariant();
+        var normalized = value.Trim();
         return normalized switch
         {
-            "SOCCER" => (long)global::LeagueCode.LEAGUE,
-            "LEAGUE" or "LIGA" or "DIVISION" => (long)global::LeagueCode.LEAGUE,
-            "CUP" => (long)global::LeagueCode.CUP,
-            "SUPER" or "SUPERCUP" => (long)global::LeagueCode.SUPER,
-            "INTERNATIONAL" => (long)global::LeagueCode.INTERNATIONAL,
+            "1" => (long)global::LeagueCode.LEAGUE,
+            "2" => (long)global::LeagueCode.CUP,
             _ => (long)global::LeagueCode.None
         };
     }
