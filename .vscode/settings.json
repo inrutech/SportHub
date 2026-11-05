@@ -1,4 +1,3 @@
 {
-    "dotnet.defaultSolution": "SportHub.sln",
-    "git.path": "C:/Program Files/Git/cmd/git.exe"
+    "dotnet.defaultSolution": "SportHub.sln"
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+
 using Microsoft.EntityFrameworkCore;
 
 namespace SportHub.Repository.Model;
@@ -26,9 +27,14 @@ public partial class DBContext : DbContext
             entity.HasKey(e => e.Id).HasName("StandardLeagues_pkey");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Abbr).HasMaxLength(64);
             entity.Property(e => e.AliasArray).HasColumnType("jsonb");
+            entity.Property(e => e.CountryCode).HasMaxLength(16);
             entity.Property(e => e.Country).HasMaxLength(256);
+            entity.Property(e => e.LeagueCode).HasColumnType("LeagueCodeEnum");
+            entity.Property(e => e.MetaJson).HasColumnType("jsonb");
             entity.Property(e => e.Name).HasMaxLength(256);
+            entity.Property(e => e.Region).HasMaxLength(64);
         });
 
         modelBuilder.Entity<Order>(entity =>
@@ -90,9 +96,16 @@ public partial class DBContext : DbContext
             entity.HasKey(e => e.Id).HasName("StandardTeams_pkey");
 
             entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Abbr).HasMaxLength(64);
             entity.Property(e => e.AliasArray).HasColumnType("jsonb");
+            entity.Property(e => e.City).HasMaxLength(256);
+            entity.Property(e => e.CountryCode).HasMaxLength(16);
             entity.Property(e => e.Country).HasMaxLength(256);
+            entity.Property(e => e.EnglishName).HasMaxLength(256);
+            entity.Property(e => e.MetaJson).HasColumnType("jsonb");
             entity.Property(e => e.Name).HasMaxLength(256);
+            entity.Property(e => e.ShortName).HasMaxLength(128);
+            entity.Property(e => e.Stadium).HasMaxLength(256);
         });
 
         OnModelCreatingPartial(modelBuilder);

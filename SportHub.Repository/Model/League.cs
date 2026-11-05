@@ -7,11 +7,23 @@ public partial class League
 {
     public long Id { get; set; }
 
+    public string? Abbr { get; set; }
+
     public string? Name { get; set; }
+
+    public string? CountryCode { get; set; }
+
+    public string? LeagueCode { get; set; }
 
     public string? Country { get; set; }
 
+    public string? Region { get; set; }
+
+    public int? Tier { get; set; }
+
     public string? AliasArray { get; set; }
+
+    public string? MetaJson { get; set; }
 
     public long Flag { get; set; }
 

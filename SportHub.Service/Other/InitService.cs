@@ -1,10 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 
-using SportHub.Domain.Other.Request;
 using SportHub.Repository.Model;
 
-using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -14,13 +11,52 @@ namespace SportHub.Service.Other;
 
 public class InitService(IServiceProvider provider) : BaseService(provider)
 {
-    public async Task<SysResult<bool>> SyncLeagueAsync(SyncLeagueRequest request)
+    private const string DefaultApiBaseUrl = "https://www.thesportsdb.com/api/v1/json";
+    private const string DefaultApiKey = "123";
+
+    public async Task<SysResult<bool>> SyncLeagueAsync()
     {
-        var leaguePayload = await GetSourcePayloadAsync(request, request.LeagueUrl, request.LeaguePath);
-        var teamPayload = await GetSourcePayloadAsync(request, request.TeamUrl, request.TeamPath);
+        var apiBaseUrl = GetEnvOrDefault("SPORTHUB_SYNC_API_BASEURL", DefaultApiBaseUrl).TrimEnd('/');
+        var apiKey = GetEnvOrDefault("SPORTHUB_SYNC_API_KEY", DefaultApiKey);
+
+        var leaguesUrl = $"{apiBaseUrl}/{apiKey}/all_leagues.php";
+
+        var client = HttpClientFactory.CreateClient();
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("SportHub/1.0");
+
+        var leaguePayload = await client.GetStringAsync(leaguesUrl);
 
         var leagues = ParseLeagues(leaguePayload);
-        var teams = ParseTeams(teamPayload);
+        var teams = new List<Team>();
+
+        foreach (var league in leagues)
+        {
+            if (string.IsNullOrWhiteSpace(league.Name))
+            {
+                continue;
+            }
+
+            var encodedLeagueName = Uri.EscapeDataString(league.Name);
+            var teamsUrl = $"{apiBaseUrl}/{apiKey}/search_all_teams.php?l={encodedLeagueName}";
+
+            string teamPayload;
+            try
+            {
+                teamPayload = await client.GetStringAsync(teamsUrl);
+            }
+            catch
+            {
+                continue;
+            }
+
+            teams.AddRange(ParseTeams(teamPayload));
+        }
+
+        // The API can return duplicate teams across competitions; keep the latest payload by Id.
+        teams = teams
+            .GroupBy(x => x.Id)
+            .Select(g => g.Last())
+            .ToList();
 
         await UpsertLeaguesAsync(leagues);
         await UpsertTeamsAsync(teams);
@@ -30,56 +66,15 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return Result(true);
     }
 
-    private async Task<string> GetSourcePayloadAsync(
-        SyncLeagueRequest request,
-        string? directUrl,
-        string fallbackPath)
+    private static string GetEnvOrDefault(string key, string fallback)
     {
-        var client = HttpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("SportHub/1.0");
-
-        if (!string.IsNullOrWhiteSpace(directUrl))
+        var envValue = Environment.GetEnvironmentVariable(key);
+        if (!string.IsNullOrWhiteSpace(envValue))
         {
-            return await client.GetStringAsync(directUrl);
+            return envValue;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Owner) || string.IsNullOrWhiteSpace(request.Repo))
-        {
-            throw new InvalidOperationException("未提供 LeagueUrl/TeamUrl 时，必须提供 Owner 和 Repo。");
-        }
-
-        var escapedPath = Uri.EscapeDataString(fallbackPath).Replace("%2F", "/");
-        var url =
-            $"https://api.github.com/repos/{request.Owner}/{request.Repo}/contents/{escapedPath}?ref={request.Branch}";
-
-        using var message = new HttpRequestMessage(HttpMethod.Get, url);
-        message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-
-        if (!string.IsNullOrWhiteSpace(request.Token))
-        {
-            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", request.Token);
-        }
-
-        using var response = await client.SendAsync(message);
-        response.EnsureSuccessStatusCode();
-
-        var responseText = await response.Content.ReadAsStringAsync();
-        var jsonObject = JsonNode.Parse(responseText)?.AsObject();
-        var content = jsonObject?["content"]?.GetValue<string>();
-        if (!string.IsNullOrWhiteSpace(content))
-        {
-            var base64Text = content.Replace("\r", string.Empty).Replace("\n", string.Empty);
-            var bytes = Convert.FromBase64String(base64Text);
-            return Encoding.UTF8.GetString(bytes);
-        }
-
-        var downloadUrl = jsonObject?["download_url"]?.GetValue<string>();
-        if (string.IsNullOrWhiteSpace(downloadUrl))
-        {
-            throw new InvalidOperationException("未能从 GitHub 返回中解析文件内容。");
-        }
-
-        return await client.GetStringAsync(downloadUrl);
+        return fallback;
     }
 
     private static List<League> ParseLeagues(string payload)
@@ -104,9 +99,21 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             result.Add(new League
             {
                 Id = id,
-                Name = GetString(item, "name", "Name"),
-                Country = GetString(item, "country", "Country"),
-                AliasArray = GetAliasArray(item, "aliasArray", "AliasArray", "aliases", "alias"),
+                Abbr = GetString(item, "strLeagueAlternate", "abbr", "Abbr", "short", "shortName", "code", "Code"),
+                Name = GetString(item, "strLeague", "name", "Name"),
+                CountryCode = GetString(item, "strCountryCode", "countryCode", "country_code", "countryIso", "country_iso", "fifaCode", "fifa_code"),
+                LeagueCode = NormalizeLeagueCode(GetString(item, "strSport", "leagueCode", "LeagueCode", "leagueType", "LeagueType", "type", "Type", "kind", "Kind", "category", "Category")),
+                Country = GetString(item, "strCountry", "country", "Country"),
+                Region = GetString(item, "region", "Region", "continent", "confederation"),
+                Tier = GetNullableInt32(item, "tier", "Tier", "level", "Level", "division", "Division"),
+                AliasArray = BuildAliasDictionary(
+                    [
+                        ("thesportsdb", GetString(item, "idLeague")),
+                        ("espn", GetString(item, "idESPN")),
+                        ("apifootball", GetString(item, "idAPIfootball"))
+                    ],
+                    [GetString(item, "strLeagueAlternate"), GetString(item, "strLeague")]),
+                MetaJson = GetObjectJson(item, "meta", "metadata", "extra"),
                 Flag = GetInt64(item, ["flag", "Flag", "status", "Status"], 1),
                 CreatedTime = GetInt64(item, ["createdTime", "CreatedTime", "created_at"], now),
                 UpdatedTime = GetInt64(item, ["updatedTime", "UpdatedTime", "updated_at"], now)
@@ -138,9 +145,23 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             result.Add(new Team
             {
                 Id = id,
-                Name = GetString(item, "name", "Name"),
-                Country = GetString(item, "country", "Country"),
-                AliasArray = GetAliasArray(item, "aliasArray", "AliasArray", "aliases", "alias"),
+                Abbr = GetString(item, "strTeamShort", "abbr", "Abbr", "short", "shortName", "code", "Code"),
+                Name = GetString(item, "strTeam", "name", "Name"),
+                ShortName = GetString(item, "strTeamShort", "shortName", "ShortName", "abbr", "Abbr", "short", "Short"),
+                EnglishName = GetString(item, "englishName", "EnglishName", "enName", "en_name"),
+                CountryCode = GetString(item, "countryCode", "country_code", "countryIso", "country_iso", "fifaCode", "fifa_code"),
+                Country = GetString(item, "strCountry", "country", "Country"),
+                City = GetString(item, "strLocation", "city", "City", "location", "Location"),
+                FoundedYear = GetNullableInt32(item, "intFormedYear", "foundedYear", "FoundedYear", "founded", "Founded"),
+                Stadium = GetString(item, "strStadium", "stadium", "Stadium", "ground", "Ground"),
+                AliasArray = BuildAliasDictionary(
+                    [
+                        ("thesportsdb", GetString(item, "idTeam")),
+                        ("espn", GetString(item, "idESPN")),
+                        ("apifootball", GetString(item, "idAPIfootball"))
+                    ],
+                    [GetString(item, "strTeamAlternate"), GetString(item, "strTeam")]),
+                MetaJson = GetObjectJson(item, "meta", "metadata", "extra"),
                 Flag = GetInt64(item, ["flag", "Flag", "status", "Status"], 1),
                 CreatedTime = GetInt64(item, ["createdTime", "CreatedTime", "created_at"], now),
                 UpdatedTime = GetInt64(item, ["updatedTime", "UpdatedTime", "updated_at"], now)
@@ -168,8 +189,14 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             if (existing.TryGetValue(source.Id, out var target))
             {
                 target.Name = source.Name;
+                target.Abbr = source.Abbr;
+                target.CountryCode = source.CountryCode;
+                target.LeagueCode = source.LeagueCode;
                 target.Country = source.Country;
+                target.Region = source.Region;
+                target.Tier = source.Tier;
                 target.AliasArray = source.AliasArray;
+                target.MetaJson = source.MetaJson;
                 target.Flag = source.Flag;
                 target.UpdatedTime = now;
                 continue;
@@ -207,8 +234,16 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             if (existing.TryGetValue(source.Id, out var target))
             {
                 target.Name = source.Name;
+                target.Abbr = source.Abbr;
+                target.ShortName = source.ShortName;
+                target.EnglishName = source.EnglishName;
+                target.CountryCode = source.CountryCode;
                 target.Country = source.Country;
+                target.City = source.City;
+                target.FoundedYear = source.FoundedYear;
+                target.Stadium = source.Stadium;
                 target.AliasArray = source.AliasArray;
+                target.MetaJson = source.MetaJson;
                 target.Flag = source.Flag;
                 target.UpdatedTime = now;
                 continue;
@@ -304,6 +339,34 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return defaultValue;
     }
 
+    private static int? GetNullableInt32(JsonObject source, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (source[key] is not JsonValue value)
+            {
+                continue;
+            }
+
+            if (value.TryGetValue<int>(out var intValue))
+            {
+                return intValue;
+            }
+
+            if (value.TryGetValue<long>(out var longValue) && longValue is <= int.MaxValue and >= int.MinValue)
+            {
+                return (int)longValue;
+            }
+
+            if (int.TryParse(value.ToString(), out var parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
+
     private static string? GetAliasArray(JsonObject source, params string[] keys)
     {
         foreach (var key in keys)
@@ -340,5 +403,68 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         }
 
         return null;
+    }
+
+    private static string BuildAliasDictionary(
+        IEnumerable<(string platform, string? key)> keys,
+        IEnumerable<string?> aliases)
+    {
+        var keyObj = new JsonObject();
+        foreach (var (platform, key) in keys)
+        {
+            if (string.IsNullOrWhiteSpace(platform) || string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            keyObj[platform] = key;
+        }
+
+        var aliasArray = new JsonArray();
+        foreach (var alias in aliases.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()).Distinct())
+        {
+            aliasArray.Add(alias);
+        }
+
+        var root = new JsonObject
+        {
+            ["keys"] = keyObj,
+            ["aliases"] = aliasArray
+        };
+
+        return root.ToJsonString();
+    }
+
+    private static string? GetObjectJson(JsonObject source, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var node = source[key];
+            if (node is JsonObject or JsonArray)
+            {
+                return node.ToJsonString();
+            }
+        }
+
+        return null;
+    }
+
+    private static string? NormalizeLeagueCode(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim().ToUpperInvariant();
+        return normalized switch
+        {
+            "SOCCER" => "LEAGUE",
+            "LEAGUE" or "LIGA" or "DIVISION" => "LEAGUE",
+            "CUP" => "CUP",
+            "SUPER" or "SUPERCUP" => "SUPER",
+            "INTERNATIONAL" => "INTERNATIONAL",
+            _ => normalized
+        };
     }
 }
