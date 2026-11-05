@@ -110,7 +110,6 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
                 LeagueCode = NormalizeLeagueCode(GetString(item, "strSport", "leagueCode", "LeagueCode", "leagueType", "LeagueType", "type", "Type", "kind", "Kind", "category", "Category")),
                 Country = GetString(item, "strCountry", "country", "Country"),
                 Region = GetString(item, "region", "Region", "continent", "confederation"),
-                Tier = GetNullableInt32(item, "tier", "Tier", "level", "Level", "division", "Division"),
                 AliasArray = BuildAliasDictionary(
                     [
                         ("thesportsdb", GetString(item, "idLeague")),
@@ -157,7 +156,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
                 CountryCode = GetString(item, "countryCode", "country_code", "countryIso", "country_iso", "fifaCode", "fifa_code"),
                 Country = GetString(item, "strCountry", "country", "Country"),
                 City = GetString(item, "strLocation", "city", "City", "location", "Location"),
-                FoundedYear = GetNullableInt32(item, "intFormedYear", "foundedYear", "FoundedYear", "founded", "Founded"),
+                FoundedYear = GetNullableInt64(item, "intFormedYear", "foundedYear", "FoundedYear", "founded", "Founded"),
                 Stadium = GetString(item, "strStadium", "stadium", "Stadium", "ground", "Ground"),
                 AliasArray = BuildAliasDictionary(
                     [
@@ -199,7 +198,6 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
                 target.LeagueCode = source.LeagueCode;
                 target.Country = source.Country;
                 target.Region = source.Region;
-                target.Tier = source.Tier;
                 target.AliasArray = source.AliasArray;
                 target.MetaJson = source.MetaJson;
                 target.Flag = source.Flag;
@@ -344,7 +342,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         return defaultValue;
     }
 
-    private static int? GetNullableInt32(JsonObject source, params string[] keys)
+    private static long? GetNullableInt64(JsonObject source, params string[] keys)
     {
         foreach (var key in keys)
         {
@@ -353,17 +351,17 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
                 continue;
             }
 
+            if (value.TryGetValue<long>(out var longValue))
+            {
+                return longValue;
+            }
+
             if (value.TryGetValue<int>(out var intValue))
             {
                 return intValue;
             }
 
-            if (value.TryGetValue<long>(out var longValue) && longValue is <= int.MaxValue and >= int.MinValue)
-            {
-                return (int)longValue;
-            }
-
-            if (int.TryParse(value.ToString(), out var parsed))
+            if (long.TryParse(value.ToString(), out var parsed))
             {
                 return parsed;
             }
