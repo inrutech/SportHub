@@ -10,20 +10,20 @@ using Zero.Core.Extensions;
 using Zero.Core.Result;
 using Zero.Core.Util;
 
-namespace SportHub.Domain.Client.VIC;
+namespace SportHub.Domain.Client.IM;
 
 [Inject]
-public partial class VICClient(IServiceProvider service)
+public partial class IMClient(IServiceProvider service)
 {
     /// <summary>
     /// 日志·数
     /// </summary>
-    public string _logPath = $"Client/{nameof(VICClient)}";
+    public string _logPath = $"Client/{nameof(IMClient)}";
 
     /// <summary>
     /// 日志事件
     /// </summary>
-    public ILogger<VICClient>? _logger => service.GetService<ILogger<VICClient>>();
+    public ILogger<IMClient>? _logger => service.GetService<ILogger<IMClient>>();
 
     /// <summary>
     /// HTTP 客户端数˹设置

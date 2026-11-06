@@ -1,7 +1,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace SportHub.Domain.Client.VIC.Response;
+namespace SportHub.Domain.Client.IM.Response;
 
 public partial class GetLeagueListResponse
 {

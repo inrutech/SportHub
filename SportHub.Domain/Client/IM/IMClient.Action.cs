@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-using SportHub.Domain.Client.VIC.Response;
+using SportHub.Domain.Client.IM.Response;
 
 using System.Net;
 using System.Net.Http;
@@ -10,9 +10,9 @@ using System.Text.Json;
 
 using Zero.Core.Result;
 
-namespace SportHub.Domain.Client.VIC;
+namespace SportHub.Domain.Client.IM;
 
-public partial class VICClient
+public partial class IMClient
 {
     public async Task<SysResult<GetLeagueListResponse>> GetLeagueListAsync(string token)
     {

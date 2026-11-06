@@ -10,7 +10,7 @@ public partial class Team
     [Timestamp] public uint _version { get; set; }
 
     [NotMapped]
-    public Dictionary<long, string>? AliasArray
+    public Dictionary<long, string>? SourceArray
     {
         get => SourceArrayJson?.DeserializeJson<Dictionary<long, string>>();
         set => SourceArrayJson = value?.ToJson();

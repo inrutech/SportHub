@@ -19,27 +19,7 @@ namespace SportHub.Core.Code
         /// <summary>
         /// 公共配置
         /// </summary>
-        Common = 1,
-
-        /// <summary>
-        /// 闪兑汇率
-        /// </summary>
-        ExchangeRate = 2,
-
-        /// <summary>
-        /// 区块链配置
-        /// </summary>
-        Chain = 3,
-
-        /// <summary>
-        /// 代收配置
-        /// </summary>
-        Credit = 4,
-
-        /// <summary>
-        /// 代付配置
-        /// </summary>
-        Debit = 5,
+        Base = 1,
 
         /// <summary>
         /// 三方配置

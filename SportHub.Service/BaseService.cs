@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
+using SportHub.Domain.Client.IM;
 using SportHub.Domain.Context;
 using SportHub.Repository.Model;
 using SportHub.Service.Common;
@@ -37,6 +38,8 @@ public partial class BaseService(IServiceProvider provider)
     public ILogger<BaseService> Logger => _provider.GetRequiredService<ILogger<BaseService>>()!;
 
     public LoginContext<Repository.Model.Admin> AdminContext => _provider.GetRequiredService<LoginContext<Repository.Model.Admin>>();
+
+    public IMClient IMClient => _provider.GetService<IMClient>()!;
 
     public ConfigService ConfigService => _provider.GetRequiredService<ConfigService>();
 
