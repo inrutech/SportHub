@@ -18,6 +18,11 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
 
     public async Task<SysResult<bool>> SyncLeagueAsync(SyncLeagueRequest request)
     {
+        if (request is null || string.IsNullOrWhiteSpace(request.Token))
+        {
+            return Result(false, ErrorCode.SYS_FAIL, "同步失败：请求缺少 Token。");
+        }
+
         var leagueListResult = await VicClient.GetLeagueListAsync(request.Token);
         if (leagueListResult.Code != ErrorCode.SYS_SUCCESS || leagueListResult.Result is null)
         {
@@ -43,7 +48,17 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
 
     public async Task<SysResult<GetOrderDetailResponse>> GetOrderDetailAsync(GetOrderDetailRequest request)
     {
-        var result = await VicClient.GetOrderDetailAsync(request.Token, request.OrderId);
+        if (request is null || string.IsNullOrWhiteSpace(request.Token))
+        {
+            return Result<GetOrderDetailResponse>(default, ErrorCode.SYS_FAIL, "查询失败：请求缺少 Token。");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.OrderId))
+        {
+            return Result<GetOrderDetailResponse>(default, ErrorCode.SYS_FAIL, "查询失败：请求缺少订单号。");
+        }
+
+        var result = await VicClient.GetOrderDetailAsync(request.Token, request.OrderId, request.MatchIdList);
         if (result.Code != ErrorCode.SYS_SUCCESS || result.Result is null)
         {
             return Result<GetOrderDetailResponse>(default, ErrorCode.SYS_FAIL, $"查询失败：VIC 请求失败。{result.ErrorDesc}");
