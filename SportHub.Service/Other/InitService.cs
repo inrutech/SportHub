@@ -2,10 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 using SportHub.Domain.Client.VIC;
-using SportHub.Domain.Client.VIC.Request;
+using SportHub.Domain.Client.VIC.Response;
 using SportHub.Repository.Model;
-
-using System.Text.Json.Nodes;
 
 using Zero.Core.Result;
 
@@ -14,79 +12,78 @@ namespace SportHub.Service.Other;
 public class InitService(IServiceProvider provider) : BaseService(provider)
 {
     private const long DefaultSourceCode = (long)global::SourceCode.VIC;
+
     private VICClient VicClient => _provider.GetService<VICClient>()!;
 
     public async Task<SysResult<bool>> SyncLeagueAsync(SyncLeagueRequest request)
     {
         if (string.IsNullOrWhiteSpace(request?.Token))
         {
-            throw new InvalidOperationException("同步失败：请求缺少 Token。请在 header 映射字段 __userkeyid__ 对应的 Token 传入请求体。\n");
+            return Result(false, ErrorCode.SYS_FAIL, "同步失败：请求缺少 Token。");
         }
 
-        var payloadResult = await VicClient.GetLeagueListAsync(new VicLeagueListRequest
+        var leagueListResult = await VicClient.GetLeagueListAsync(request.Token);
+        if (leagueListResult.Code != ErrorCode.SYS_SUCCESS || leagueListResult.Result is null)
         {
-            Token = request.Token
-        });
-
-        if (payloadResult.Code != ErrorCode.SYS_SUCCESS || string.IsNullOrWhiteSpace(payloadResult.Result))
-        {
-            throw new InvalidOperationException($"同步失败：VIC 请求失败。{payloadResult.ErrorDesc}");
+            return Result(false, ErrorCode.SYS_FAIL, $"同步失败：VIC 请求失败。{leagueListResult.ErrorDesc}");
         }
 
-        var leagues = ParseLeaguesFromVic(payloadResult.Result);
+        if (leagueListResult.Result.Code != 200)
+        {
+            return Result(false, ErrorCode.SYS_FAIL, $"同步失败：VIC 返回失败。{leagueListResult.Result.Msg}");
+        }
+
+        var leagues = BuildLeagueEntities(leagueListResult.Result.ListData);
         if (leagues.Count == 0)
         {
-            throw new InvalidOperationException("同步失败：未从数据源解析到任何联赛。请检查接口响应或字段映射。");
+            return Result(false, ErrorCode.SYS_FAIL, "同步失败：未从数据源解析到任何联赛。");
         }
 
         await UpsertLeaguesAsync(leagues);
-
         await DB.SaveChangesAsync();
 
         return Result(true);
     }
 
-    private static List<League> ParseLeaguesFromVic(string payload)
+    private static List<League> BuildLeagueEntities(List<ListDatum>? sourceItems)
     {
-        var array = ExtractVicListData(payload);
-        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var result = new List<League>(array.Count);
-
-        foreach (var node in array)
+        if (sourceItems is null || sourceItems.Count == 0)
         {
-            if (node is not JsonObject item)
-            {
-                continue;
-            }
-
-            var id = GetInt64(item, "id", "keyid", "Id", "league_id", "leagueId");
-            if (id <= 0)
-            {
-                continue;
-            }
-
-            result.Add(new League
-            {
-                Id = id,
-                NameEn = GetString(item, "name_en"),
-                NameZhCn = GetString(item, "name_chs"),
-                NameZhTw = GetString(item, "name_cht"),
-                ShortNameEn = GetString(item, "name_en_short"),
-                ShortNameZhCn = GetString(item, "name_chs_short"),
-                ShortNameZhTw = GetString(item, "name_cht_short"),
-                CountryId = GetNullableInt64(item, "country_id"),
-                CountryEn = GetString(item, "country_en"),
-                CountryZhCn = GetString(item, "country_cn"),
-                CountryZhTw = GetString(item, "country_cht", "country_cn"),
-                LeagueCode = NormalizeLeagueCodeFromType(GetString(item, "type")),
-                AliasArray = BuildAliasDictionary(DefaultSourceCode, GetString(item, "keyid", "id")),
-                Flag = GetInt64(item, ["flag", "Flag", "status", "Status"], 1),
-                CreatedTime = GetInt64(item, ["createtime", "createdTime", "CreatedTime", "created_at"], now),
-                UpdatedTime = GetInt64(item, ["updatetime", "updatedTime", "UpdatedTime", "updated_at"], now)
-            });
+            return [];
         }
 
-        return result;
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        return sourceItems
+            .Where(item => item is not null)
+            .Select(item => CreateLeagueEntity(item, now))
+            .Where(item => item.Id > 0)
+            .ToList();
+    }
+
+    private static League CreateLeagueEntity(ListDatum item, long now)
+    {
+        var sourceId = GetSourceId(item);
+
+        return new League
+        {
+            Id = sourceId,
+            NameEn = GetText(item.NameEn),
+            NameZhCn = GetText(item.NameChs),
+            NameZhTw = GetText(item.NameCht),
+            ShortNameEn = GetText(item.NameEnShort),
+            ShortNameZhCn = GetText(item.NameChsShort),
+            ShortNameZhTw = GetText(item.NameChtShort),
+            CountryId = item.CountryId > 0 ? item.CountryId : null,
+            CountryEn = GetText(item.CountryEn),
+            CountryZhCn = GetText(item.CountryCn),
+            CountryZhTw = GetText(item.CountryCn),
+            LeagueCode = NormalizeLeagueCodeFromType(item.Type),
+            AliasArray = BuildAliasDictionary(DefaultSourceCode, sourceId),
+            Flag = GetLong(item.IsDisabled, 1),
+            CreatedTime = item.Createtime > 0 ? item.Createtime : now,
+            UpdatedTime = item.Updatetime > 0 ? item.Updatetime : now
+        };
     }
 
     private async Task UpsertLeaguesAsync(List<League> leagues)
@@ -137,133 +134,50 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         }
     }
 
-    private static JsonArray ExtractVicListData(string payload)
+    private static Dictionary<long, string>? BuildAliasDictionary(long sourceCode, long sourceId)
     {
-        var node = JsonNode.Parse(payload);
-
-        if (node is JsonObject rootObject)
-        {
-            var code = GetInt64(rootObject, ["code"], 0);
-            if (code != 200)
-            {
-                throw new InvalidOperationException($"同步失败：VIC 接口返回 code={code}。\n");
-            }
-
-            if (rootObject["listData"] is JsonArray dataArray)
-            {
-                return dataArray;
-            }
-        }
-
-        throw new InvalidOperationException("同步失败：VIC 返回格式不正确，未找到 listData 数组。\n");
-    }
-
-    private static string? GetString(JsonObject source, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            if (source[key] is not JsonValue value)
-            {
-                continue;
-            }
-
-            if (value.TryGetValue<string>(out var text))
-            {
-                return text;
-            }
-
-            return value.ToString();
-        }
-
-        return null;
-    }
-
-    private static long GetInt64(JsonObject source, params string[] keys)
-    {
-        return GetInt64(source, keys, 0);
-    }
-
-    private static long GetInt64(JsonObject source, string[] keys, long defaultValue)
-    {
-        foreach (var key in keys)
-        {
-            if (source[key] is not JsonValue value)
-            {
-                continue;
-            }
-
-            if (value.TryGetValue<long>(out var longValue))
-            {
-                return longValue;
-            }
-
-            if (value.TryGetValue<int>(out var intValue))
-            {
-                return intValue;
-            }
-
-            if (long.TryParse(value.ToString(), out var parsedValue))
-            {
-                return parsedValue;
-            }
-        }
-
-        return defaultValue;
-    }
-
-    private static long? GetNullableInt64(JsonObject source, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            if (source[key] is not JsonValue value)
-            {
-                continue;
-            }
-
-            if (value.TryGetValue<long>(out var longValue))
-            {
-                return longValue;
-            }
-
-            if (value.TryGetValue<int>(out var intValue))
-            {
-                return intValue;
-            }
-
-            if (long.TryParse(value.ToString(), out var parsed))
-            {
-                return parsed;
-            }
-        }
-
-        return null;
-    }
-
-    private static Dictionary<long, string>? BuildAliasDictionary(long sourceCode, string? keyId)
-    {
-        if (sourceCode <= 0 || string.IsNullOrWhiteSpace(keyId))
+        if (sourceCode <= 0 || sourceId <= 0)
         {
             return null;
         }
 
         return new Dictionary<long, string>
         {
-            [sourceCode] = keyId.Trim()
+            [sourceCode] = sourceId.ToString()
         };
     }
 
-    private static long NormalizeLeagueCodeFromType(string? value)
+    private static long GetSourceId(ListDatum item)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        if (item.Id > 0)
         {
-            return (long)global::LeagueCode.None;
+            return item.Id;
         }
 
-        var normalized = value.Trim();
-        return normalized switch
+        if (item.LeagueId > 0)
         {
-            "1" => (long)global::LeagueCode.LEAGUE,
-            "2" => (long)global::LeagueCode.CUP,
+            return item.LeagueId;
+        }
+
+        return item.Keyid > 0 ? item.Keyid : 0;
+    }
+
+    private static string? GetText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static long GetLong(long value, long defaultValue)
+    {
+        return value > 0 ? value : defaultValue;
+    }
+
+    private static long NormalizeLeagueCodeFromType(long type)
+    {
+        return type switch
+        {
+            1 => (long)global::LeagueCode.LEAGUE,
+            2 => (long)global::LeagueCode.CUP,
             _ => (long)global::LeagueCode.None
         };
     }

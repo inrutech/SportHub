@@ -17,8 +17,6 @@ public partial class VICClient
     public async Task<SysResult<GetLeagueListResponse>> GetLeagueListAsync(string token)
     {
 
-        string url = RenderUrl("site.vic88888.com", "site/customize/fa_football_league/executeService/listData");
-
         var args = new Dictionary<string, object?>
         {
             ["tabParam"] = "",
@@ -26,7 +24,7 @@ public partial class VICClient
             ["_t"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString()
         };
 
-        var data = new Dictionary<string, object?>
+        var payload = new Dictionary<string, object?>
         {
             ["tabParam"] = "",
             ["filter"] = "",
@@ -35,18 +33,19 @@ public partial class VICClient
 
         var headers = new Dictionary<string, string>
         {
-            ["__userkeyid__"] = token
-            // ["Accept"] = "application/json, text/javascript, */*; q=0.01",
+            ["__userkeyid__"] = token,
+            ["Cookie"] = "Authorization=f1f3c047-78e0-40d5-8d48-0a5aa644ecd9",
             // ["Accept-Encoding"] = "gzip, deflate, br",
             // ["Accept-Language"] = "zh-CN,zh;q=0.9,en;q=0.8",
             // ["Connection"] = "keep-alive",
             // ["Content-Type"] = "application/json; charset=UTF-8",
-            // ["Origin"] = "https://site.vic88888.com",
-            // ["Referer"] = "https://site.vic88888.com/site/customize/fa_football_league/executeService/listData?_t=1697040000000&tabParam=&refFormId=fa_football_league",
-            // ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
+            ["Origin"] = "https://site.vic88888.com",
+            ["Referer"] = "https://site.vic88888.com/site/customize/fa_football_league/view.do",
+            ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0"
         };
 
-        return PostAsync<GetLeagueListResponse>(url, args, data);
+        var r = await PostAsync<GetLeagueListResponse>("site.vic88888.com", "site/customize/fa_football_league/executeService/listData", args, payload, headers);
+        return r;
     }
 
 }

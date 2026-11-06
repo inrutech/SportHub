@@ -52,8 +52,8 @@ public partial class VICClient(IServiceProvider service)
         {
             Proxy = proxy,
             UseProxy = true,
-            PreAuthenticate = true,
-            UseDefaultCredentials = false,
+            // PreAuthenticate = true,
+            // UseDefaultCredentials = false,
             AutomaticDecompression = DecompressionMethods.All
         };
 
