@@ -33,19 +33,41 @@ public partial class VICClient
 
         var headers = new Dictionary<string, string>
         {
-            ["__userkeyid__"] = token,
-            ["Cookie"] = "Authorization=f1f3c047-78e0-40d5-8d48-0a5aa644ecd9",
-            // ["Accept-Encoding"] = "gzip, deflate, br",
-            // ["Accept-Language"] = "zh-CN,zh;q=0.9,en;q=0.8",
-            // ["Connection"] = "keep-alive",
-            // ["Content-Type"] = "application/json; charset=UTF-8",
-            // ["Origin"] = "https://site.vic88888.com",
-            // ["Referer"] = "https://site.vic88888.com/site/customize/fa_football_league/view.do",
-            // ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0"
+            // ["__userkeyid__"] = token
+            ["Cookie"] = $"Authorization={token}",
         };
 
         var r = await PostAsync<GetLeagueListResponse>("site.vic88888.com", "/site/customize/fa_football_league/executeService/listData", args, payload, headers);
         return r;
+    }
+
+    public async Task<SysResult<GetOrderDetailResponse>> GetOrderDetailAsync(string token, string ordId, string? matchId = null)
+    {
+        var args = new Dictionary<string, object?>
+        {
+            ["tabParam"] = "",
+            ["refFormId"] = "fa_football_bet_order",
+            ["_t"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString()
+        };
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["ordid"] = ordId,
+            ["match_id"] = string.IsNullOrWhiteSpace(matchId) ? "2997771, 2997773, 3012344, 3108822, 2962730, 3019189, 3008323" : matchId
+        };
+
+        var headers = new Dictionary<string, string>
+        {
+            // ["__userkeyid__"] = token,
+            ["Cookie"] = $"Authorization={token}",
+        };
+
+        return await PostAsync<GetOrderDetailResponse>(
+            "site.vic88888.com",
+            "/site/customize/fa_football_bet_order/executeService/get_json",
+            args,
+            payload,
+            headers);
     }
 
 }
