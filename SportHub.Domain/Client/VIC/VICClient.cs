@@ -5,87 +5,156 @@ using System.Net;
 using System.Net.Http;
 
 using Zero.Core.Attribute;
+using Zero.Core.Extensions;
 using Zero.Core.Result;
+using Zero.Core.Util;
 
 namespace SportHub.Domain.Client.VIC;
 
 [Inject]
 public partial class VICClient(IServiceProvider service)
 {
-    private const string DefaultLeagueReferer = "https://site.vic88888.com/site/customize/fa_football_league/view.do";
-    private const string DefaultLeagueUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0";
-    private const string DefaultLeagueCookie = "Authorization=eca4f808-f86e-4838-9fd5-a368eed400e3";
-    private const string DefaultProxyUrl = "http://127.0.0.1:7890";
+    /// <summary>
+    /// 日志·数
+    /// </summary>
+    public string _logPath = $"Client/{nameof(SMSClient)}";
 
-    public IHttpClientFactory HttpClientFactory => service.GetService<IHttpClientFactory>()!;
+    /// <summary>
+    /// 日志事件
+    /// </summary>
+    public ILogger<SMSClient>? _logger => service.GetService<ILogger<SMSClient>>();
 
-    public ILogger<VICClient>? Logger => service.GetService<ILogger<VICClient>>();
+    /// <summary>
+    /// HTTP 客户端数˹设置
+    /// </summary>
+    public IHttpClientFactory? _httpClientFactory => service.GetService<IHttpClientFactory>();
 
-    private HttpClient CreateHttpClient(bool ignoreSslErrors, bool useProxy)
+    public string AppId { get; private set; } = string.Empty;
+    public string AppKey { get; private set; } = string.Empty;
+    public string AppSecret { get; private set; } = string.Empty;
+
+    public void Init(string appId, string appKey, string appSecret)
     {
-        if (!ignoreSslErrors && !useProxy)
-        {
-            return HttpClientFactory.CreateClient();
-        }
+        AppId = appId;
+        AppKey = appKey;
+        AppSecret = appSecret;
+    }
 
-        var handler = new HttpClientHandler();
+    private HttpClient CreateHttpClient()
+    {
+        // var proxy = new WebProxy("http://65.20.68.6:33333")
+        // {
+        //     Credentials = new NetworkCredential("Zero", "472aa3d22c4b48a2bdf6f017b81e5f88")
+        // };
 
-        if (ignoreSslErrors)
-        {
-            handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
-        }
+        // var handler = new HttpClientHandler
+        // {
+        //     Proxy = proxy,
+        //     UseProxy = true,
+        //     PreAuthenticate = true,
+        //     UseDefaultCredentials = false
+        // };
 
-        if (useProxy)
+        HttpClient client = _httpClientFactory!.CreateClient();
+
+        string timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        string sign = CryptoHelper.MD5_Encrypt($"{AppKey}{AppSecret}{timestamp}");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Sign", sign);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Timestamp", timestamp);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Api-Key", AppKey);
+
+        // var client = new HttpClient(handler);
+        return client;
+    }
+
+    private SysResult<T> ErrorResult<T>()
+    {
+        return new SysResult<T> { Code = ErrorCode.SYS_FAIL, Result = default };
+    }
+
+    /// <summary>
+    /// 设备名ͽ请求的첽请求
+    /// </summary>
+    /// <typeparam name="T">请求设置</typeparam>
+    /// <param name="message">HTTP 响应消息</param>
+    /// <returns>设置ͽ数</returns>
+    protected virtual async Task<SysResult<T>> ResultAsync<T>(HttpResponseMessage message) where T : class
+    {
+        string r = await message.Content.ReadAsStringAsync();
+        _logger?.LogCustom($"result:{r}", _logPath);
+        if (message.StatusCode != HttpStatusCode.OK)
         {
-            var proxyUrl = GetEnvOrDefault("SPORTHUB_SYNC_PROXY", DefaultProxyUrl);
-            var proxy = new WebProxy(proxyUrl)
+            return new SysResult<T>
             {
-                BypassProxyOnLocal = false
+                Code = ErrorCode.SYS_FAIL,
+                ErrorDesc = message.StatusCode.ToString(),
+                Result = default
             };
-
-            handler.Proxy = proxy;
-            handler.UseProxy = true;
         }
 
-        return new HttpClient(handler, disposeHandler: true);
+        return new SysResult<T> { Code = ErrorCode.SYS_SUCCESS, Result = r.DeserializeJson<T>() };
     }
 
-    private static string GetEnvOrDefault(string key, string fallback)
+    /// <summary>
+    /// GET 请求
+    /// </summary>
+    /// <typeparam name="T">请求请求</typeparam>
+    /// <param name="url">请求 URL</param>
+    /// <returns>设备名</returns>
+    public async Task<SysResult<T>> GetAsync<T>(string url) where T : class
     {
-        var envValue = Environment.GetEnvironmentVariable(key);
-        if (!string.IsNullOrWhiteSpace(envValue))
+        try
         {
-            return envValue;
-        }
-
-        return fallback;
-    }
-
-    private static string FlattenExceptionMessages(Exception ex)
-    {
-        var messages = new List<string>();
-        Exception? current = ex;
-
-        while (current is not null)
-        {
-            if (!string.IsNullOrWhiteSpace(current.Message))
+            if (url.IsNullOrEmpty())
             {
-                messages.Add(current.Message.Trim());
+                return ErrorResult<T>();
             }
 
-            current = current.InnerException;
+            HttpClient client = CreateHttpClient();
+            HttpResponseMessage result = await client.GetAsync(url);
+            _logger?.LogCustom($"url:{url}", _logPath);
+            return await ResultAsync<T>(result);
         }
-
-        return string.Join(" | ", messages.Distinct());
+        catch (Exception ex)
+        {
+            _logger?.LogFail(ex);
+            return ErrorResult<T>();
+        }
     }
 
-    private static SysResult<T> Fail<T>(string errorDesc)
+    /// <summary>
+    /// POST 设置󣨷数ط数ͽ请求
+    /// </summary>
+    /// <typeparam name="T">请求请求</typeparam>
+    /// <param name="url">请求 URL</param>
+    /// <param name="args">请求设置</param>
+    /// <returns>设备名</returns>
+    public async Task<SysResult<T>> PostAsync<T>(string url, Dictionary<string, object?>? args = null) where T : class
     {
-        return new SysResult<T>
+        try
         {
-            Code = ErrorCode.SYS_FAIL,
-            ErrorDesc = errorDesc,
-            Result = default
-        };
+            if (url.IsNullOrEmpty())
+            {
+                return ErrorResult<T>();
+            }
+
+            HttpClient client = CreateHttpClient();
+            StringContent content = new(args?.ToJson() ?? string.Empty, Encoding.UTF8, "application/json");
+            HttpResponseMessage result = await client.PostAsync(url, content);
+            _logger?.LogCustom($"url:{url}\r\ncontent:{content.ToJson()}", _logPath);
+            return await ResultAsync<T>(result);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogFail(ex);
+            return ErrorResult<T>();
+        }
+    }
+
+    protected string RenderUrl(string domain, string action)
+    {
+        var url = $"https://{domain}/{action}";
+
+        return url;
     }
 }

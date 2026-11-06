@@ -86,4 +86,20 @@ public partial class VICClient
             return Fail<string>($"请求异常：{detail}");
         }
     }
+
+    public Task<SysResult<SendSMSResponse>> SendSMSAsync(string? mobile, string? code, string? creds)
+    {
+        string url = RenderUrl("api.laaffic.com", "v3/sendSms");
+
+        var data = new Dictionary<string, object?>
+        {
+            { "appId", AppId },
+            { "numbers", $"91{mobile}" },
+            { "content", $"Your verification code is: {code}. For your security, this code expires in 3 minutes. Please do not share this code with anyone." },
+            { "senderId", "UPIBee" },
+            { "orderId", creds }
+        };
+
+        return PostAsync<SendSMSResponse>(url, data);
+    }
 }
