@@ -33,10 +33,7 @@ public partial class IMClient
 
         var headers = new Dictionary<string, string>
         {
-            ["__userkeyid__"] = token,
-            ["Origin"] = "https://site.vic88888.com",
-            ["Referer"] = "https://site.vic88888.com/site/customize/fa_football_league/view.do",
-            ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0"
+            ["cookie"] = $"Authorization={token}",
         };
 
         var r = await PostAsync<GetLeagueListResponse>("site.vic88888.com", "/site/customize/fa_football_league/executeService/listData", args, payload, headers);
@@ -80,10 +77,7 @@ public partial class IMClient
 
         var headers = new Dictionary<string, string>
         {
-            ["__userkeyid__"] = token,
-            ["Origin"] = "https://site.vic88888.com",
-            ["Referer"] = "https://site.vic88888.com/site/customize/fa_football_bet_order/view.do",
-            ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0"
+            ["cookie"] = $"Authorization={token}",
         };
 
         return await PostAsync<GetOrderDetailResponse>(
