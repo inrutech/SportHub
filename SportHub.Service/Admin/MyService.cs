@@ -1,4 +1,7 @@
-using SportHub.Domain.Admin.Request;
+using Microsoft.EntityFrameworkCore;
+
+using SportHub.Core;
+using SportHub.Domain.Admin.Request.My;
 
 using Zero.Core.Result;
 
@@ -6,13 +9,17 @@ namespace SportHub.Service.Admin;
 
 public class MyService(IServiceProvider provider) : BaseService(provider)
 {
-    public Task<SysResult<bool>> SetTokenAsync(SetTokenRequest request)
+    public async Task<SysResult<bool>> SetTokenAsync(SetTokenRequest request)
     {
-        if (request is null || string.IsNullOrWhiteSpace(request.Token))
+        var token = await DB.Config.FirstOrDefaultAsync(x => x.GlobalHash == GlobalHash.LoginToken);
+        if (token == null)
         {
-            return Task.FromResult(Result(false, ErrorCode.SYS_FAIL, "设置失败：请求缺少 Token。"));
+            return Result(false, ErrorCode.USER_CUSTOM, "Token配置不存在");
         }
-
-        return Task.FromResult(Result(true));
+        token.Value = request.Token;
+        token.UpdatedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        await DB.SaveChangesAsync();
+        ConfigService.CacheRemoveConfigList();
+        return Result(true);
     }
 }

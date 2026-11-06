@@ -11,9 +11,13 @@ public partial class DBContext : DbContext
     {
     }
 
+    public virtual DbSet<Admin> Admin { get; set; }
+
     public virtual DbSet<Config> Config { get; set; }
 
     public virtual DbSet<League> League { get; set; }
+
+    public virtual DbSet<Match> Match { get; set; }
 
     public virtual DbSet<Order> Order { get; set; }
 
@@ -24,6 +28,26 @@ public partial class DBContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresEnum("LeagueCodeEnum", new[] { "LEAGUE", "CUP", "SUPER", "INTERNATIONAL", "UNKNOWN" });
+
+        modelBuilder.Entity<Admin>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("Admin_pkey");
+
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Alias)
+                .HasMaxLength(256)
+                .HasComment("别名");
+            entity.Property(e => e.GoogleAuthSecret)
+                .HasMaxLength(256)
+                .HasComment("谷歌授权码,关键操作使用");
+            entity.Property(e => e.HostWhiteList).HasComment("访问ip白名单");
+            entity.Property(e => e.LoginName)
+                .HasMaxLength(256)
+                .HasComment("登录名");
+            entity.Property(e => e.Password)
+                .HasMaxLength(256)
+                .HasComment("密码");
+        });
 
         modelBuilder.Entity<Config>(entity =>
         {
@@ -60,6 +84,15 @@ public partial class DBContext : DbContext
             entity.Property(e => e.ShortNameEn).HasMaxLength(256);
             entity.Property(e => e.ShortNameZhCn).HasMaxLength(256);
             entity.Property(e => e.ShortNameZhTw).HasMaxLength(256);
+            entity.Property(e => e.SourceArrayJson).HasColumnType("jsonb");
+        });
+
+        modelBuilder.Entity<Match>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("Match_pkey");
+
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.LeagueId).HasComment("联盟编号");
             entity.Property(e => e.SourceArrayJson).HasColumnType("jsonb");
         });
 

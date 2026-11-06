@@ -3,7 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
+using SportHub.Domain.Context;
 using SportHub.Repository.Model;
+using SportHub.Service.Common;
 
 using Zero.Core.Attribute;
 using Zero.Core.Extensions;
@@ -18,21 +20,25 @@ public partial class BaseService(IServiceProvider provider)
 {
     protected readonly IServiceProvider _provider = provider;
 
-    public IHttpClientFactory HttpClientFactory => _provider.GetService<IHttpClientFactory>()!;
+    public IHttpClientFactory HttpClientFactory => _provider.GetRequiredService<IHttpClientFactory>();
 
-    public IHttpContextAccessor HttpContextAccessor => _provider.GetService<IHttpContextAccessor>()!;
+    public IHttpContextAccessor HttpContextAccessor => _provider.GetRequiredService<IHttpContextAccessor>();
 
-    public DBContext DB => _provider.GetService<DBContext>()!;
+    public DBContext DB => _provider.GetRequiredService<DBContext>();
 
-    public WebCache WebCache => _provider.GetService<WebCache>()!;
+    public WebCache WebCache => _provider.GetRequiredService<WebCache>();
 
-    public Snowflake Snowflake => _provider.GetService<Snowflake>()!;
+    public Snowflake Snowflake => _provider.GetRequiredService<Snowflake>();
 
-    public WebClient WebClient => _provider.GetService<WebClient>()!;
+    public WebClient WebClient => _provider.GetRequiredService<WebClient>();
 
-    protected IHostEnvironment HostEnvironment => _provider.GetService<IHostEnvironment>()!;
+    protected IHostEnvironment HostEnvironment => _provider.GetRequiredService<IHostEnvironment>()!;
 
-    public ILogger<BaseService> Logger => _provider.GetService<ILogger<BaseService>>()!;
+    public ILogger<BaseService> Logger => _provider.GetRequiredService<ILogger<BaseService>>()!;
+
+    public LoginContext<Repository.Model.Admin> AdminContext => _provider.GetRequiredService<LoginContext<Repository.Model.Admin>>();
+
+    public ConfigService ConfigService => _provider.GetRequiredService<ConfigService>();
 
     protected SysResult<T> Result<T>(T? model)
     {

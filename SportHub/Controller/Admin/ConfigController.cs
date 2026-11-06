@@ -1,12 +1,12 @@
 using System;
 using SportHub.Core.Code;
 using SportHub.Domain.Admin.Response.Config;
-using SportHub.Filter;
 using SportHub.Service.Admin;
 using Microsoft.AspNetCore.Mvc;
 using Zero.Core.Result;
 using SportHub.Controller.Admin;
 using SportHub.Domain.Admin.Request.Config;
+using SportHub.Filter;
 
 namespace SportHub.Controller.Admin;
 
@@ -21,7 +21,7 @@ public class ConfigController(ConfigService service) : BaseController
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
-    [AdminValid(grantSystemCode: GrantSystemCode.Config)]
+    [AdminValid]
     [HttpGet("List")]
     public Task<SysResult<List<ListResponse>>> ListAsync([FromQuery] ListRequest request)
     {
@@ -33,7 +33,7 @@ public class ConfigController(ConfigService service) : BaseController
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
-    [AdminValid(grantSystemCode: GrantSystemCode.Config)]
+    [AdminValid]
     [HttpPost("Set")]
     public Task<SysResult<bool>> SetAsync(SetRequest request)
     {

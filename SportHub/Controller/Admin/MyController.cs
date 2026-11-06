@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 
-using SportHub.Domain.Admin.Request;
+using SportHub.Domain.Admin.Request.My;
 using SportHub.Service.Admin;
 
 using Zero.Core.Result;
