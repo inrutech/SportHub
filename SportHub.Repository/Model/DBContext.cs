@@ -11,6 +11,8 @@ public partial class DBContext : DbContext
     {
     }
 
+    public virtual DbSet<Config> Config { get; set; }
+
     public virtual DbSet<League> League { get; set; }
 
     public virtual DbSet<Order> Order { get; set; }
@@ -22,6 +24,26 @@ public partial class DBContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresEnum("LeagueCodeEnum", new[] { "LEAGUE", "CUP", "SUPER", "INTERNATIONAL", "UNKNOWN" });
+
+        modelBuilder.Entity<Config>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("Config_pkey");
+
+            entity.ToTable(tb => tb.HasComment("配置"));
+
+            entity.HasIndex(e => e.ConfigCode, "idx_config_code");
+
+            entity.HasIndex(e => e.GlobalHash, "idx_config_globalhash");
+
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.ConfigCode).HasComment("配置类型");
+            entity.Property(e => e.DataCode).HasComment("数据类型");
+            entity.Property(e => e.GlobalHash).HasComment("全局hash健");
+            entity.Property(e => e.Sort).HasComment("排序号");
+            entity.Property(e => e.Value)
+                .HasMaxLength(256)
+                .HasComment("值");
+        });
 
         modelBuilder.Entity<League>(entity =>
         {

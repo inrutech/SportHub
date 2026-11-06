@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace SportHub.Domain.Admin.Request;
+namespace SportHub.Domain.Admin.Request.My;
 
 public class SetTokenRequest
 {
