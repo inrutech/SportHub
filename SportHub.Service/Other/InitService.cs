@@ -23,7 +23,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             throw new InvalidOperationException("同步失败：请求缺少 Token。请在 header 映射字段 __userkeyid__ 对应的 Token 传入请求体。\n");
         }
 
-        var payloadResult = await VicClient.GetLeagueListPayloadAsync(new VicLeagueListRequest
+        var payloadResult = await VicClient.GetLeagueListAsync(new VicLeagueListRequest
         {
             Token = request.Token
         });

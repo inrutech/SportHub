@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 
 using System.Net;
 using System.Net.Http;
+using System.Text;
 
 using Zero.Core.Attribute;
 using Zero.Core.Extensions;
@@ -17,12 +18,12 @@ public partial class VICClient(IServiceProvider service)
     /// <summary>
     /// 日志·数
     /// </summary>
-    public string _logPath = $"Client/{nameof(SMSClient)}";
+    public string _logPath = $"Client/{nameof(VICClient)}";
 
     /// <summary>
     /// 日志事件
     /// </summary>
-    public ILogger<SMSClient>? _logger => service.GetService<ILogger<SMSClient>>();
+    public ILogger<VICClient>? _logger => service.GetService<ILogger<VICClient>>();
 
     /// <summary>
     /// HTTP 客户端数˹设置
@@ -40,30 +41,32 @@ public partial class VICClient(IServiceProvider service)
         AppSecret = appSecret;
     }
 
-    private HttpClient CreateHttpClient()
+    private HttpClient CreateHttpClient(Dictionary<string, string>? headers = null)
     {
-        // var proxy = new WebProxy("http://65.20.68.6:33333")
-        // {
-        //     Credentials = new NetworkCredential("Zero", "472aa3d22c4b48a2bdf6f017b81e5f88")
-        // };
+        var proxy = new WebProxy("http://127.0.0.1:7890")
+        {
+            // Credentials = new NetworkCredential("Zero", "472aa3d22c4b48a2bdf6f017b81e5f88")
+        };
 
-        // var handler = new HttpClientHandler
-        // {
-        //     Proxy = proxy,
-        //     UseProxy = true,
-        //     PreAuthenticate = true,
-        //     UseDefaultCredentials = false
-        // };
+        var handler = new HttpClientHandler
+        {
+            Proxy = proxy,
+            UseProxy = true,
+            PreAuthenticate = true,
+            UseDefaultCredentials = false,
+            AutomaticDecompression = DecompressionMethods.All
+        };
 
-        HttpClient client = _httpClientFactory!.CreateClient();
+        var client = new HttpClient(handler);
 
-        string timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-        string sign = CryptoHelper.MD5_Encrypt($"{AppKey}{AppSecret}{timestamp}");
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Sign", sign);
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Timestamp", timestamp);
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Api-Key", AppKey);
+        if (headers != null)
+        {
+            foreach (var header in headers)
+            {
+                client.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
+            }
+        }
 
-        // var client = new HttpClient(handler);
         return client;
     }
 
@@ -129,17 +132,20 @@ public partial class VICClient(IServiceProvider service)
     /// <param name="url">请求 URL</param>
     /// <param name="args">请求设置</param>
     /// <returns>设备名</returns>
-    public async Task<SysResult<T>> PostAsync<T>(string url, Dictionary<string, object?>? args = null) where T : class
+    public async Task<SysResult<T>> PostAsync<T>(string host, string action, Dictionary<string, object?>? args = null, Dictionary<string, object?>? payload = null, Dictionary<string, string>? headers = null) where T : class
     {
         try
         {
-            if (url.IsNullOrEmpty())
+            if (action.IsNullOrEmpty())
             {
                 return ErrorResult<T>();
             }
 
-            HttpClient client = CreateHttpClient();
-            StringContent content = new(args?.ToJson() ?? string.Empty, Encoding.UTF8, "application/json");
+            var url = RenderUrl(host, action, args);
+
+            HttpClient client = CreateHttpClient(headers);
+
+            var content = new StringContent(payload?.ToJson() ?? string.Empty, Encoding.UTF8, "application/json");
             HttpResponseMessage result = await client.PostAsync(url, content);
             _logger?.LogCustom($"url:{url}\r\ncontent:{content.ToJson()}", _logPath);
             return await ResultAsync<T>(result);
@@ -151,10 +157,21 @@ public partial class VICClient(IServiceProvider service)
         }
     }
 
-    protected string RenderUrl(string domain, string action)
+    protected string RenderUrl(string host, string action, Dictionary<string, object?>? args = null)
     {
-        var url = $"https://{domain}/{action}";
-
+        var url = host.IsNullOrEmpty() ? action : $"https://{host}{action}";
+        if (args?.Count > 0)
+        {
+            var query = string.Join("&", args.Where(a => a.Value != null).Select(a => $"{a.Key}={Uri.EscapeDataString(a.Value?.ToString() ?? string.Empty)}"));
+            if (action.Contains('?'))
+            {
+                url += "&" + query;
+            }
+            else
+            {
+                url += "?" + query;
+            }
+        }
         return url;
     }
 }
