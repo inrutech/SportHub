@@ -39,12 +39,12 @@ public partial class VICClient
             // ["Accept-Language"] = "zh-CN,zh;q=0.9,en;q=0.8",
             // ["Connection"] = "keep-alive",
             // ["Content-Type"] = "application/json; charset=UTF-8",
-            ["Origin"] = "https://site.vic88888.com",
-            ["Referer"] = "https://site.vic88888.com/site/customize/fa_football_league/view.do",
-            ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0"
+            // ["Origin"] = "https://site.vic88888.com",
+            // ["Referer"] = "https://site.vic88888.com/site/customize/fa_football_league/view.do",
+            // ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0"
         };
 
-        var r = await PostAsync<GetLeagueListResponse>("site.vic88888.com", "site/customize/fa_football_league/executeService/listData", args, payload, headers);
+        var r = await PostAsync<GetLeagueListResponse>("site.vic88888.com", "/site/customize/fa_football_league/executeService/listData", args, payload, headers);
         return r;
     }
 
