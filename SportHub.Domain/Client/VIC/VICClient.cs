@@ -43,18 +43,12 @@ public partial class VICClient(IServiceProvider service)
 
     private HttpClient CreateHttpClient(Dictionary<string, string>? headers = null)
     {
-        var proxy = new WebProxy("http://127.0.0.1:7890")
-        {
-            // Credentials = new NetworkCredential("Zero", "472aa3d22c4b48a2bdf6f017b81e5f88")
-        };
-
         var handler = new HttpClientHandler
         {
-            Proxy = proxy,
+            AutomaticDecompression = DecompressionMethods.All,
             UseProxy = true,
-            // PreAuthenticate = true,
-            // UseDefaultCredentials = false,
-            AutomaticDecompression = DecompressionMethods.All
+            Proxy = new WebProxy("http://127.0.0.1:7890"),
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         };
 
         var client = new HttpClient(handler);
