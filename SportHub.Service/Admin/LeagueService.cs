@@ -13,7 +13,7 @@ public class LeagueService(IServiceProvider provider) : BaseService(provider)
     {
         var token = await ConfigService.GetValueAsync(GlobalHash.LoginToken);
         var leagueListResult = await IMClient.GetLeagueListAsync(token);
-        if (leagueListResult.Code != ErrorCode.SYS_SUCCESS || leagueListResult.Result?.Code != 200)
+        if (leagueListResult.OccurError || leagueListResult.Result?.Code != 200)
         {
             return Result(false, ErrorCode.SYS_FAIL, $"同步失败：IM 请求失败。{leagueListResult.ErrorDesc}");
         }
