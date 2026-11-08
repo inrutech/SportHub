@@ -108,6 +108,7 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
                     LegIndex = row.LegNo ?? legIndex,
                     MatchId = row.MatchId,
                     MatchStartTime = ParseTimeSeconds(row.MatchTime),
+                    PeriodCode = ParsePeriodCode(row.Period),
                     MarketCode = ParseMarketCode(row.BetType),
                     SelectionCode = ParseSelectionCode(row.Side),
                     BetOdds = ParseDecimal(row.LegOdds) ?? ParseDecimal(row.OrderOdds),
@@ -262,6 +263,21 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             "ah" => 2,
             "ou" => 3,
             "parlay" => 4,
+            _ => null
+        };
+    }
+
+    private static long? ParsePeriodCode(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "full" or "full_time" or "full-time" => 1,
+            "half" or "half_time" or "half-time" => 2,
             _ => null
         };
     }
