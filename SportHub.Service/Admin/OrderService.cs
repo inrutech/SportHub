@@ -89,10 +89,22 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             var legIndex = 1;
             foreach (var row in group.OrderBy(x => x.LegNo ?? 0))
             {
+                var leagueId = await ResolveLeagueIdAsync(row.LeagueChs);
+                var homeTeamId = await EnsureTeamAsync(row.HomeChs, leagueId);
+                var awayTeamId = await EnsureTeamAsync(row.AwayChs, leagueId);
+
+                if (row.MatchId.HasValue)
+                {
+                    await EnsureMatchAsync(row.MatchId.Value, leagueId, homeTeamId, awayTeamId);
+                }
+
                 var orderLeg = new OrderLeg
                 {
                     Id = Snowflake.NewID(),
                     OrderId = order.Id,
+                    LeagueId = leagueId,
+                    HomeTeamId = homeTeamId,
+                    AwayTeamId = awayTeamId,
                     LegIndex = row.LegNo ?? legIndex,
                     MatchId = row.MatchId,
                     MatchStartTime = ParseTimeSeconds(row.MatchTime),
@@ -115,6 +127,86 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
 
         await DB.SaveChangesAsync();
         return Result(true);
+    }
+
+    private async Task<long?> ResolveLeagueIdAsync(string? leagueName)
+    {
+        if (string.IsNullOrWhiteSpace(leagueName))
+        {
+            return null;
+        }
+
+        var name = leagueName.Trim();
+        var league = await DB.League.FirstOrDefaultAsync(x =>
+            (!string.IsNullOrWhiteSpace(x.NameZhCn) && x.NameZhCn == name) ||
+            (!string.IsNullOrWhiteSpace(x.NameZhTw) && x.NameZhTw == name) ||
+            (!string.IsNullOrWhiteSpace(x.NameEn) && x.NameEn == name) ||
+            (!string.IsNullOrWhiteSpace(x.ShortNameZhCn) && x.ShortNameZhCn == name) ||
+            (!string.IsNullOrWhiteSpace(x.ShortNameZhTw) && x.ShortNameZhTw == name) ||
+            (!string.IsNullOrWhiteSpace(x.ShortNameEn) && x.ShortNameEn == name));
+
+        return league?.Id;
+    }
+
+    private async Task<long?> EnsureTeamAsync(string? teamName, long? leagueId)
+    {
+        if (string.IsNullOrWhiteSpace(teamName))
+        {
+            return null;
+        }
+
+        var name = teamName.Trim();
+        var team = await DB.Team.FirstOrDefaultAsync(x =>
+            x.LeagueId == leagueId &&
+            ((x.NameZhCn != null && x.NameZhCn == name) ||
+             (x.NameZhTw != null && x.NameZhTw == name) ||
+             (x.NameEn != null && x.NameEn == name)));
+
+        if (team != null)
+        {
+            return team.Id;
+        }
+
+        var createdAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var newTeam = new Team
+        {
+            Id = Snowflake.NewID(),
+            LeagueId = leagueId,
+            NameEn = name,
+            NameZhCn = name,
+            NameZhTw = name,
+            Flag = 0,
+            CreatedTime = createdAt,
+            UpdatedTime = createdAt
+        };
+
+        await DB.Team.AddAsync(newTeam);
+        return newTeam.Id;
+    }
+
+    private async Task EnsureMatchAsync(long matchId, long? leagueId, long? homeTeamId, long? awayTeamId)
+    {
+        var match = await DB.Match.FirstOrDefaultAsync(x => x.Id == matchId);
+        if (match != null)
+        {
+            match.LeagueId ??= leagueId;
+            match.HomeTeamId ??= homeTeamId;
+            match.AwayTeamId ??= awayTeamId;
+            match.UpdatedTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            return;
+        }
+
+        var createdAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        await DB.Match.AddAsync(new Match
+        {
+            Id = matchId,
+            LeagueId = leagueId,
+            HomeTeamId = homeTeamId,
+            AwayTeamId = awayTeamId,
+            Flag = 0,
+            CreatedTime = createdAt,
+            UpdatedTime = createdAt
+        });
     }
 
     private static long? ParseLong(string? value)
