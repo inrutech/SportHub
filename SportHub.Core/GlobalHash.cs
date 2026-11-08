@@ -10,6 +10,8 @@ public class GlobalHash
 
     public const long LoginToken = 10000;
 
+    public const long IMApiKey = 10010;
+
     #endregion
 
 

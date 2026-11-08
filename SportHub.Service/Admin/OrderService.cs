@@ -1,7 +1,10 @@
+using System.Globalization;
+
 using Microsoft.EntityFrameworkCore;
 
 using SportHub.Core;
 using SportHub.Domain.Admin.Request.Order;
+using SportHub.Domain.Client.IM.Response;
 using SportHub.Repository.Model;
 
 using Zero.Core.Result;
@@ -12,78 +15,101 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
 {
     public async Task<SysResult<bool>> SyncOrderAsync(SyncOrderRequest request)
     {
-        var token = await ConfigService.GetValueAsync(GlobalHash.LoginToken);
-        var detailResult = await IMClient.GetOrderDetailAsync(token, request.OrderId, request.MatchId);
-        if (detailResult.OccurError || detailResult.Result?.Code != 200)
+        if (request == null)
         {
-            return Result(false, ErrorCode.SYS_FAIL, $"同步失败：订单详情请求失败。{detailResult.ErrorDesc}");
+            return Result(false, ErrorCode.USER_CUSTOM, "请求参数为空");
         }
 
-        var info = detailResult.Result.Info[0];
-        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-        var order = await DB.Order.FirstOrDefaultAsync(x => x.SourceNo == info.Orderid);
-        if (order == null)
+        var orderId = request.OrderId?.Trim();
+        if (string.IsNullOrWhiteSpace(orderId))
         {
-            order = new Order
+            return Result(false, ErrorCode.USER_CUSTOM, "orderid 不能为空");
+        }
+
+        var apiKey = await ConfigService.GetValueAsync(GlobalHash.IMApiKey);
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            return Result(false, ErrorCode.USER_CUSTOM, "IMApiKey 配置不存在");
+        }
+
+        var startTime = DateTime.UtcNow.AddDays(-30);
+        var endTime = DateTime.UtcNow;
+        var page = request.Page <= 0 ? 1 : request.Page;
+        var pageSize = request.PageSize <= 0 ? 100 : Math.Min(request.PageSize, 500);
+
+        var queryResult = await IMClient.GetOrderQueryAsync(apiKey, startTime, endTime, request.Settled, page, pageSize, orderId, request.UserId, request.BetType);
+        if (queryResult.Code != ErrorCode.SYS_SUCCESS || queryResult.Result?.Code != 200)
+        {
+            return Result(false, ErrorCode.SYS_FAIL, $"同步失败：订单查询接口返回异常。{queryResult.ErrorDesc}");
+        }
+
+        var rows = queryResult.Result.Data?.Rows ?? [];
+        if (rows.Count == 0)
+        {
+            return Result(true);
+        }
+
+        var groupedRows = rows
+            .Where(x => !string.IsNullOrWhiteSpace(x.Orderid))
+            .GroupBy(x => x.Orderid)
+            .ToList();
+
+        foreach (var group in groupedRows)
+        {
+            var firstRow = group.First();
+            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var order = await DB.Order.FirstOrDefaultAsync(x => x.SourceNo == firstRow.Orderid);
+            if (order == null)
             {
-                Id = Snowflake.NewID(),
-                SourceNo = info.Orderid,
-                Flag = 0,
-                CreatedTime = now
-            };
-            await DB.Order.AddAsync(order);
-        }
+                order = new Order
+                {
+                    Id = Snowflake.NewID(),
+                    SourceNo = firstRow.Orderid,
+                    Flag = 0,
+                    CreatedTime = now
+                };
+                await DB.Order.AddAsync(order);
+            }
 
-        order.OrderCode = ParseLong(info.BetType);
-        order.LegCount = detailResult.Result.Schedule?.Count ?? 0;
-        order.Stake = ParseDecimal(info.Stake);
-        order.Odds = ParseDecimal(info.Odds);
-        order.PotentialPayout = ParseDecimal(info.PotentialReturn);
-        order.ActualPayout = ParseDecimal(info.Payout);
-        order.OrderSettleCode = ParseLong(info.SettleStatus);
-        order.UpdatedTime = now;
+            order.LegCount = firstRow.LegCount ?? group.Count();
+            order.Stake = ParseDecimal(firstRow.Stake);
+            order.Odds = ParseDecimal(firstRow.OrderOdds);
+            order.PotentialPayout = ParseDecimal(firstRow.PotentialReturn);
+            order.ActualPayout = ParseDecimal(firstRow.Payout);
+            order.OrderSettleCode = firstRow.SettleStatus;
+            order.OrderCode = ParseMarketCode(firstRow.BetType);
+            order.UpdatedTime = now;
 
-        var existingLegs = await DB.OrderLeg
-            .Where(x => x.OrderId == order.Id)
-            .ToListAsync();
+            var existingLegs = await DB.OrderLeg.Where(x => x.OrderId == order.Id).ToListAsync();
+            if (existingLegs.Count > 0)
+            {
+                DB.OrderLeg.RemoveRange(existingLegs);
+            }
 
-        foreach (var leg in existingLegs)
-        {
-            DB.OrderLeg.Remove(leg);
-        }
-
-        if (detailResult.Result.Schedule != null)
-        {
             var legIndex = 1;
-            foreach (var schedule in detailResult.Result.Schedule)
+            foreach (var row in group.OrderBy(x => x.LegNo ?? 0))
             {
                 var orderLeg = new OrderLeg
                 {
                     Id = Snowflake.NewID(),
                     OrderId = order.Id,
-                    LegIndex = legIndex++,
-                    LeagueId = ParseLong(schedule.LeagueChsShort),
-                    MatchId = ParseLong(schedule.MatchId),
-                    MatchStartTime = ParseLong(schedule.MatchTime),
-                    HomeTeamId = ParseLong(schedule.HomeChs),
-                    AwayTeamId = ParseLong(schedule.AwayChs),
-                    FullTimeScore = ParseLong(schedule.HomeScore) is null ? null : ParseLong(schedule.HomeScore),
-                    // FullTimeScore 历史值使用成对分值，仅作为可用字段落库
-                    // 其余结算/玩法字段在当前响应中无法精确对应时按默认值保留。
+                    LegIndex = row.LegNo ?? legIndex,
+                    MatchId = row.MatchId,
+                    MatchStartTime = ParseTimeSeconds(row.MatchTime),
+                    MarketCode = ParseMarketCode(row.BetType),
+                    SelectionCode = ParseSelectionCode(row.Side),
+                    BetOdds = ParseDecimal(row.LegOdds) ?? ParseDecimal(row.OrderOdds),
+                    SettledOdds = ParseDecimal(row.OrderOdds),
+                    LegSettleCode = row.SettleStatus,
+                    SourceNo = ParseLong(row.Orderid),
+                    HandicapValue = ParseDecimal(row.LineDisplay),
                     Flag = 0,
                     CreatedTime = now,
                     UpdatedTime = now
                 };
 
-                var scoreHome = ParseLong(schedule.HomeScore);
-                var scoreAway = ParseLong(schedule.AwayScore);
-                orderLeg.FullTimeScore = scoreHome;
-                orderLeg.BetScore = scoreHome + scoreAway;
-                orderLeg.LegSettleCode = ParseLong(info.SettleStatus);
-                orderLeg.SourceNo = ParseLong(info.Id);
-
                 await DB.OrderLeg.AddAsync(orderLeg);
+                legIndex++;
             }
         }
 
@@ -108,6 +134,61 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             return null;
         }
 
-        return decimal.TryParse(value, out var result) ? result : null;
+        return decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result) ? result : null;
+    }
+
+    private static long? ParseTimeSeconds(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+        {
+            return new DateTimeOffset(dt, TimeSpan.FromHours(9)).ToUnixTimeSeconds();
+        }
+
+        if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out dt))
+        {
+            return new DateTimeOffset(dt, TimeSpan.FromHours(9)).ToUnixTimeSeconds();
+        }
+
+        return null;
+    }
+
+    private static long? ParseMarketCode(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "1x2" => 1,
+            "ah" => 2,
+            "ou" => 3,
+            "parlay" => 4,
+            _ => null
+        };
+    }
+
+    private static long? ParseSelectionCode(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "home" => 1,
+            "away" => 2,
+            "draw" => 3,
+            "over" => 4,
+            "under" => 5,
+            _ => null
+        };
     }
 }
