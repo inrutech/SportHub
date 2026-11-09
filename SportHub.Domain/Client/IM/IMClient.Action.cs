@@ -92,55 +92,26 @@ public partial class IMClient
         string apiKey,
         DateTime startTime,
         DateTime endTime,
-        int settled,
-        int page = 1,
-        int pageSize = 100,
         string? orderId = null,
-        string? userId = null,
-        string? betType = null)
+        int settled = 0)
     {
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            return new SysResult<GetOrderQueryResponse>
-            {
-                Code = ErrorCode.SYS_FAIL,
-                ErrorDesc = "缺少 API Key",
-                Result = null
-            };
-        }
 
-        var payload = new Dictionary<string, object?>();
 
-        if (!string.IsNullOrWhiteSpace(orderId))
+        var payload = new Dictionary<string, object?>()
         {
-            payload["orderid"] = orderId;
-        }
-        else
-        {
-            payload["start_time"] = startTime.ToString("yyyy-MM-dd HH:mm:ss");
-            payload["end_time"] = endTime.ToString("yyyy-MM-dd HH:mm:ss");
-            payload["settled"] = settled;
-            payload["page"] = page <= 0 ? 1 : page;
-            payload["page_size"] = pageSize <= 0 ? 100 : Math.Min(pageSize, 500);
-        }
-
-        if (!string.IsNullOrWhiteSpace(userId))
-        {
-            payload["user_id"] = userId;
-        }
-
-        if (!string.IsNullOrWhiteSpace(betType))
-        {
-            payload["bet_type"] = betType;
-        }
+            ["start_time"] = startTime.ToString("yyyy-MM-dd HH:mm:ss"),
+            ["end_time"] = endTime.ToString("yyyy-MM-dd HH:mm:ss"),
+            ["settled"] = settled,
+            ["orderid"] = orderId
+        };
 
         var headers = new Dictionary<string, string>
         {
             ["X-Api-Key"] = apiKey,
-            ["Content-Type"] = "application/json"
+            ["Content-Type"] = "application/json;charset=UTF-8"
         };
 
-        return await PostAsync<GetOrderQueryResponse>("site.vic88888.com", "/openapi/order/query", null, payload, headers);
+        return await PostAsync<GetOrderQueryResponse>("smartwork.ddns.net:26592", "/api/getOrders", null, payload, headers);
     }
 
 }

@@ -15,29 +15,16 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
 {
     public async Task<SysResult<bool>> SyncOrderAsync(SyncOrderRequest request)
     {
-        if (request == null)
-        {
-            return Result(false, ErrorCode.USER_CUSTOM, "请求参数为空");
-        }
-
-        var orderId = request.OrderId?.Trim();
-        if (string.IsNullOrWhiteSpace(orderId))
-        {
-            return Result(false, ErrorCode.USER_CUSTOM, "orderid 不能为空");
-        }
-
         var apiKey = await ConfigService.GetValueAsync(GlobalHash.IMApiKey);
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             return Result(false, ErrorCode.USER_CUSTOM, "IMApiKey 配置不存在");
         }
 
-        var startTime = DateTime.UtcNow.AddDays(-30);
-        var endTime = DateTime.UtcNow;
-        var page = request.Page <= 0 ? 1 : request.Page;
-        var pageSize = request.PageSize <= 0 ? 100 : Math.Min(request.PageSize, 500);
+        var startTime = new DateTime(2026, 7, 20);
+        var endTime = new DateTime(2026, 7, 26);
 
-        var queryResult = await IMClient.GetOrderQueryAsync(apiKey, startTime, endTime, request.Settled, page, pageSize, orderId, request.UserId, request.BetType);
+        var queryResult = await IMClient.GetOrderQueryAsync(apiKey, startTime, endTime, request.OrderId);
         if (queryResult.Code != ErrorCode.SYS_SUCCESS || queryResult.Result?.Code != 200)
         {
             return Result(false, ErrorCode.SYS_FAIL, $"同步失败：订单查询接口返回异常。{queryResult.ErrorDesc}");

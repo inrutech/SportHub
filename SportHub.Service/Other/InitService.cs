@@ -39,6 +39,7 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
             [ConfigCode.Base] =
             [
                 (GlobalHash.LoginToken, DataCode.String, "24e26089-0397-436a-a8c3-593f9d46be2a"),
+                (GlobalHash.IMApiKey, DataCode.String, "qfikVgt8xiRiLFD4hOkx")
             ]
         };
 
