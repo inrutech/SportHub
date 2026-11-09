@@ -30,11 +30,6 @@ public partial class OrderLeg
     public long? AwayTeamId { get; set; }
 
     /// <summary>
-    /// 比赛开始时间
-    /// </summary>
-    public long? MatchStartTime { get; set; }
-
-    /// <summary>
     /// 比赛阶段（FULL_TIME:全场, HALF_TIME:上半场）
     /// </summary>
     public long? PeriodCode { get; set; }
@@ -53,21 +48,6 @@ public partial class OrderLeg
     /// 投注选项（如 Under, Over, HOME, AWAY, DRAW 等）
     /// </summary>
     public long? SelectionCode { get; set; }
-
-    /// <summary>
-    /// 下注时的比赛即时比分
-    /// </summary>
-    public long? BetScore { get; set; }
-
-    /// <summary>
-    /// 比赛最终半场比分
-    /// </summary>
-    public long? HalfTimeScore { get; set; }
-
-    /// <summary>
-    /// 比赛最终全场比分
-    /// </summary>
-    public long? FullTimeScore { get; set; }
 
     /// <summary>
     /// 该腿下单时的原始赔率
@@ -99,4 +79,19 @@ public partial class OrderLeg
     /// 比赛编号
     /// </summary>
     public long? MatchId { get; set; }
+
+    /// <summary>
+    /// 下注时的比赛即时比分
+    /// </summary>
+    public long? BetHomeScore { get; set; }
+
+    /// <summary>
+    /// 比赛最终半场比分
+    /// </summary>
+    public long? BetAwayScore { get; set; }
+
+    /// <summary>
+    /// 比赛开始时间
+    /// </summary>
+    public long? MatchTime { get; set; }
 }

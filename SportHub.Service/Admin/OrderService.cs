@@ -102,7 +102,7 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
                     SettledOdds = ParseDecimal(row.OrderOdds),
                     LegSettleCode = row.SettleStatus,
                     SourceNo = ParseLong(row.Orderid),
-                    HandicapValue = ParseDecimal(row.LineDisplay),
+                    HandicapValue = ParseHandicapValue(row.LineDisplay),
                     Flag = 0,
                     CreatedTime = now,
                     UpdatedTime = now
@@ -217,6 +217,42 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         return decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result) ? result : null;
     }
 
+    private static decimal? ParseHandicapValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var text = value.Trim();
+        if (decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out var direct))
+        {
+            return direct;
+        }
+
+        // Asian handicap values may come as split line like "0/0.5" or "-0.5/-1".
+        if (text.Contains('/'))
+        {
+            var parts = text.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 2 &&
+                decimal.TryParse(parts[0], NumberStyles.Any, CultureInfo.InvariantCulture, out var p1) &&
+                decimal.TryParse(parts[1], NumberStyles.Any, CultureInfo.InvariantCulture, out var p2))
+            {
+                return (p1 + p2) / 2m;
+            }
+        }
+
+        // Fallback for values like "O2.5", "U2.5", or localized labels with numbers.
+        var match = System.Text.RegularExpressions.Regex.Match(text, @"[-+]?\d+(\.\d+)?");
+        if (match.Success &&
+            decimal.TryParse(match.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
+        {
+            return parsed;
+        }
+
+        return null;
+    }
+
     private static long? ParseTimeSeconds(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -224,14 +260,33 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             return null;
         }
 
-        if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+        var text = value.Trim();
+        var formats = new[]
         {
-            return new DateTimeOffset(dt, TimeSpan.FromHours(9)).ToUnixTimeSeconds();
+            "yyyy-MM-dd HH:mm",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy/MM/dd HH:mm",
+            "yyyy/MM/dd HH:mm:ss",
+            "yyyy-MM-ddTHH:mm:ss",
+            "yyyy-MM-ddTHH:mm:ssZ",
+            "yyyy-MM-ddTHH:mm:ss.fffZ",
+        };
+
+        if (DateTime.TryParseExact(text, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+        {
+            var unspecified = DateTime.SpecifyKind(dt, DateTimeKind.Unspecified);
+            return new DateTimeOffset(unspecified, TimeSpan.FromHours(9)).ToUnixTimeSeconds();
         }
 
-        if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out dt))
+        if (DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var dto))
         {
-            return new DateTimeOffset(dt, TimeSpan.FromHours(9)).ToUnixTimeSeconds();
+            return dto.ToUnixTimeSeconds();
+        }
+
+        if (DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out dt))
+        {
+            var unspecified = DateTime.SpecifyKind(dt, DateTimeKind.Unspecified);
+            return new DateTimeOffset(unspecified, TimeSpan.FromHours(9)).ToUnixTimeSeconds();
         }
 
         return null;

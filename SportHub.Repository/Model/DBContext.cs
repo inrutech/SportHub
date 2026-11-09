@@ -127,12 +127,11 @@ public partial class DBContext : DbContext
 
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.AwayTeamId).HasComment("客队团队编号");
+            entity.Property(e => e.BetAwayScore).HasComment("比赛最终半场比分");
+            entity.Property(e => e.BetHomeScore).HasComment("下注时的比赛即时比分");
             entity.Property(e => e.BetOdds)
                 .HasPrecision(19, 4)
                 .HasComment("该腿下单时的原始赔率");
-            entity.Property(e => e.BetScore).HasComment("下注时的比赛即时比分");
-            entity.Property(e => e.FullTimeScore).HasComment("比赛最终全场比分");
-            entity.Property(e => e.HalfTimeScore).HasComment("比赛最终半场比分");
             entity.Property(e => e.HandicapValue)
                 .HasPrecision(19, 4)
                 .HasComment("盘口数值（如大小球 1.25, 1.5, 1.75 等；独赢为空）");
@@ -142,7 +141,7 @@ public partial class DBContext : DbContext
             entity.Property(e => e.LegSettleCode).HasComment("结算状态（PENDING:待定, WON:全赢, HALF_WON:赢一半, PUSH:走水, HALF_LOST:输一半, LOST:全输）");
             entity.Property(e => e.MarketCode).HasComment("玩法类型（ASIAN_HANDICAP:让球, OVER_UNDER:大小球, MONEYLINE_1X2:独赢）");
             entity.Property(e => e.MatchId).HasComment("比赛编号");
-            entity.Property(e => e.MatchStartTime).HasComment("比赛开始时间");
+            entity.Property(e => e.MatchTime).HasComment("比赛开始时间");
             entity.Property(e => e.PeriodCode).HasComment("比赛阶段（FULL_TIME:全场, HALF_TIME:上半场）");
             entity.Property(e => e.SelectionCode).HasComment("投注选项（如 Under, Over, HOME, AWAY, DRAW 等）");
             entity.Property(e => e.SettledOdds)
