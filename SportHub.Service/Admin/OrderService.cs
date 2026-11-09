@@ -64,7 +64,7 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             order.PotentialPayout = ParseDecimal(firstRow.PotentialReturn);
             order.ActualPayout = ParseDecimal(firstRow.Payout);
             order.OrderSettleCode = firstRow.SettleStatus;
-            order.OrderCode = (long?)ParseOrderCode(firstRow.BetType, firstRow.IsParlay);
+            order.OrderCode = (long)ParseOrderCode(firstRow.IsParlay, firstRow.IsRolling);
             order.UpdatedTime = now;
 
             var existingLegs = await DB.OrderLeg.Where(x => x.OrderId == order.Id).ToListAsync();
@@ -239,43 +239,49 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
 
     private static long? ParseMarketCode(string? value)
     {
-        var orderCode = ParseOrderCode(value, null);
-        return orderCode.HasValue ? (long)orderCode.Value : null;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var marketCode = value.Trim().ToLowerInvariant() switch
+        {
+            "1x2" => MarketCode.OneXTwo,
+            "ah" => MarketCode.AsianHandicap,
+            "ou" => MarketCode.OverUnder,
+            "oe" => MarketCode.OddEven,
+            "goals" => MarketCode.TotalGoals,
+            "bodan" => MarketCode.CorrectScore,
+            "half_full" => MarketCode.HalfFullTime,
+            "goal_order" => MarketCode.GoalOrder,
+            "dc" => MarketCode.DoubleChance,
+            "corner_ou" => MarketCode.CornerOverUnder,
+            "corner_other" => MarketCode.CornerOther,
+            "corner_oe" => MarketCode.CornerOddEven,
+            "oe_half" => MarketCode.HalfOddEven,
+            "tg_half" => MarketCode.HalfTotalGoals,
+            "overtime" => MarketCode.Overtime,
+            "champion" => MarketCode.Champion,
+            "parlay" => MarketCode.Parlay,
+            _ => MarketCode.None
+        };
+
+        return marketCode == MarketCode.None ? null : (long)marketCode;
     }
 
-    private static OrderCode? ParseOrderCode(string? betType, long? isParlay)
+    private static OrderCode ParseOrderCode(long? isParlay, long? isRolling)
     {
         if (isParlay == 1)
         {
             return OrderCode.Parlay;
         }
 
-        if (string.IsNullOrWhiteSpace(betType))
+        if (isRolling == 1)
         {
-            return null;
+            return OrderCode.Rolling;
         }
 
-        return betType.Trim().ToLowerInvariant() switch
-        {
-            "1x2" => OrderCode.OneXTwo,
-            "ah" => OrderCode.AsianHandicap,
-            "ou" => OrderCode.OverUnder,
-            "oe" => OrderCode.OddEven,
-            "goals" => OrderCode.TotalGoals,
-            "bodan" => OrderCode.CorrectScore,
-            "half_full" => OrderCode.HalfFullTime,
-            "goal_order" => OrderCode.GoalOrder,
-            "dc" => OrderCode.DoubleChance,
-            "corner_ou" => OrderCode.CornerOverUnder,
-            "corner_other" => OrderCode.CornerOther,
-            "corner_oe" => OrderCode.CornerOddEven,
-            "oe_half" => OrderCode.HalfOddEven,
-            "tg_half" => OrderCode.HalfTotalGoals,
-            "overtime" => OrderCode.Overtime,
-            "champion" => OrderCode.Champion,
-            "parlay" => OrderCode.Parlay,
-            _ => OrderCode.None
-        };
+        return OrderCode.PreMatch;
     }
 
     private static long? ParsePeriodCode(string? value)
@@ -285,12 +291,14 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             return null;
         }
 
-        return value.Trim().ToLowerInvariant() switch
+        var periodCode = value.Trim().ToLowerInvariant() switch
         {
-            "full" or "full_time" or "full-time" => 1,
-            "half" or "half_time" or "half-time" => 2,
-            _ => null
+            "half" or "half_time" or "half-time" => PeriodCode.HalfTime,
+            "full" or "full_time" or "full-time" => PeriodCode.FullTime,
+            _ => PeriodCode.None
         };
+
+        return periodCode == PeriodCode.None ? null : (long)periodCode;
     }
 
     private static long? ParseSelectionCode(string? value)
@@ -300,14 +308,16 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             return null;
         }
 
-        return value.Trim().ToLowerInvariant() switch
+        var selectionCode = value.Trim().ToLowerInvariant() switch
         {
-            "home" => 1,
-            "away" => 2,
-            "draw" => 3,
-            "over" => 4,
-            "under" => 5,
-            _ => null
+            "home" => SelectionCode.Home,
+            "away" => SelectionCode.Away,
+            "draw" => SelectionCode.Draw,
+            "over" => SelectionCode.Over,
+            "under" => SelectionCode.Under,
+            _ => SelectionCode.None
         };
+
+        return selectionCode == SelectionCode.None ? null : (long)selectionCode;
     }
 }
