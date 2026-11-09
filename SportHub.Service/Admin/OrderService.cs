@@ -7,6 +7,7 @@ using SportHub.Domain.Admin.Request.Order;
 using SportHub.Domain.Client.IM.Response;
 using SportHub.Repository.Model;
 
+using Zero.Core.Extensions;
 using Zero.Core.Result;
 
 namespace SportHub.Service.Admin;
@@ -63,7 +64,7 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             order.Odds = ParseDecimal(firstRow.OrderOdds);
             order.PotentialPayout = ParseDecimal(firstRow.PotentialReturn);
             order.ActualPayout = ParseDecimal(firstRow.Payout);
-            order.OrderSettleCode = firstRow.SettleStatus;
+            order.OrderSettleCode = ParseOrderSettleCode(firstRow.MoneyStatus, firstRow.SettleStatus);
             order.OrderCode = (long)ParseOrderCode(firstRow.IsParlay, firstRow.IsRolling);
             order.UpdatedTime = now;
 
@@ -94,15 +95,16 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
                     AwayTeamId = awayTeamId,
                     LegIndex = row.LegNo,
                     MatchId = row.MatchId,
-                    MatchTime = ParseTimeSeconds(row.MatchTime),
+                    MatchTime = ParseTimeSeconds(row.MatchTime) ?? ParseTimeSeconds(row.BetTime) ?? ParseUnixSeconds(row.BetTs),
                     PeriodCode = ParsePeriodCode(row.Period),
                     MarketCode = ParseMarketCode(row.BetType),
                     SelectionCode = ParseSelectionCode(row.Side),
                     BetOdds = ParseDecimal(row.LegOdds) ?? ParseDecimal(row.OrderOdds),
                     SettledOdds = ParseDecimal(row.OrderOdds),
-                    LegSettleCode = row.SettleStatus,
+                    LegSettleCode = ParseLegSettleCode(row.SettleStatus),
                     SourceNo = ParseLong(row.Orderid),
-                    HandicapValue = ParseHandicapValue(row.LineDisplay),
+                    HandicapValue = ParseHandicapValue(row.SelectionDisplay),
+                    Describe = row.ToJson(),
                     Flag = 0,
                     CreatedTime = now,
                     UpdatedTime = now
@@ -217,7 +219,12 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         return decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result) ? result : null;
     }
 
-    private static decimal? ParseHandicapValue(string? value)
+    private static string? ParseHandicapValue(string? selectionDisplay)
+    {
+        return ParseHandicapFromSelectionDisplay(selectionDisplay);
+    }
+
+    private static string? ParseHandicapFromSelectionDisplay(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -225,32 +232,27 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         }
 
         var text = value.Trim();
-        if (decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out var direct))
+        // Example: "Over 3.5 @ 2.04" -> 3.5
+        var body = System.Text.RegularExpressions.Regex.Replace(text, @"\s@\s*[-+]?\d+(?:\.\d+)?\s*(EU)?\s*$", string.Empty, System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+
+        var splitMatch = System.Text.RegularExpressions.Regex.Match(body, @"([+-]?\d+(?:\.\d+)?)/([+-]?\d+(?:\.\d+)?)");
+        if (splitMatch.Success)
         {
-            return direct;
+            return $"{decimal.Parse(splitMatch.Groups[1].Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}/{decimal.Parse(splitMatch.Groups[2].Value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}";
         }
 
-        // Asian handicap values may come as split line like "0/0.5" or "-0.5/-1".
-        if (text.Contains('/'))
+        var numberMatch = System.Text.RegularExpressions.Regex.Match(body, @"[+-]?\d+(?:\.\d+)?");
+        if (numberMatch.Success && decimal.TryParse(numberMatch.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var number))
         {
-            var parts = text.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 2 &&
-                decimal.TryParse(parts[0], NumberStyles.Any, CultureInfo.InvariantCulture, out var p1) &&
-                decimal.TryParse(parts[1], NumberStyles.Any, CultureInfo.InvariantCulture, out var p2))
-            {
-                return (p1 + p2) / 2m;
-            }
-        }
-
-        // Fallback for values like "O2.5", "U2.5", or localized labels with numbers.
-        var match = System.Text.RegularExpressions.Regex.Match(text, @"[-+]?\d+(\.\d+)?");
-        if (match.Success &&
-            decimal.TryParse(match.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
-        {
-            return parsed;
+            return number.ToString(CultureInfo.InvariantCulture);
         }
 
         return null;
+    }
+
+    private static long? ParseUnixSeconds(long value)
+    {
+        return value > 0 ? value : null;
     }
 
     private static long? ParseTimeSeconds(string? value)
@@ -337,6 +339,40 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         }
 
         return OrderCode.PreMatch;
+    }
+
+    private static long? ParseOrderSettleCode(long? moneyStatus, long? settleStatus)
+    {
+        if (moneyStatus == 1)
+        {
+            return (long)OrderSettleCode.Settled;
+        }
+
+        if (settleStatus == 0)
+        {
+            return (long)OrderSettleCode.Unsettled;
+        }
+
+        if (settleStatus is >= 1 and <= 6)
+        {
+            return (long)OrderSettleCode.Settled;
+        }
+
+        return null;
+    }
+
+    private static long? ParseLegSettleCode(long? settleStatus)
+    {
+        return settleStatus switch
+        {
+            0 => (long)LegSettleCode.Pending,
+            1 => (long)LegSettleCode.Won,
+            2 => (long)LegSettleCode.Lost,
+            3 => (long)LegSettleCode.Push,
+            4 => (long)LegSettleCode.HalfWon,
+            5 => (long)LegSettleCode.HalfLost,
+            _ => null
+        };
     }
 
     private static long? ParsePeriodCode(string? value)

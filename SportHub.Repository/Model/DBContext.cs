@@ -130,6 +130,7 @@ public partial class DBContext : DbContext
             entity.Property(e => e.BetOdds)
                 .HasPrecision(19, 4)
                 .HasComment("该腿下单时的原始赔率");
+            entity.Property(e => e.Describe).HasComment("描述");
             entity.Property(e => e.HandicapValue)
                 .HasMaxLength(256)
                 .HasComment("盘口数值（如大小球 1.25, 1.5, 1.75 等；独赢为空）");

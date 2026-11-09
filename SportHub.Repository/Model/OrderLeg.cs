@@ -84,4 +84,9 @@ public partial class OrderLeg
     /// 比赛开始时间
     /// </summary>
     public long? MatchTime { get; set; }
+
+    /// <summary>
+    /// 描述
+    /// </summary>
+    public string? Describe { get; set; }
 }

@@ -140,7 +140,6 @@ public partial class IMClient(IServiceProvider service)
             HttpClient client = CreateHttpClient(headers);
 
             var content = new StringContent(payload?.ToJson() ?? string.Empty, Encoding.UTF8, "application/json");
-            _logger?.LogCustom($"url:{url}\r\ncontent:{payload?.ToJson()}", _logPath);
             HttpResponseMessage result = await client.PostAsync(url, content);
             _logger?.LogCustom($"url:{url}\r\ncontent:{payload.ToJson()}", _logPath);
             return await ResultAsync<T>(result);
