@@ -94,7 +94,7 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
                     AwayTeamId = awayTeamId,
                     LegIndex = row.LegNo,
                     MatchId = row.MatchId,
-                    MatchStartTime = ParseTimeSeconds(row.MatchTime),
+                    MatchTime = ParseTimeSeconds(row.MatchTime),
                     PeriodCode = ParsePeriodCode(row.Period),
                     MarketCode = ParseMarketCode(row.BetType),
                     SelectionCode = ParseSelectionCode(row.Side),

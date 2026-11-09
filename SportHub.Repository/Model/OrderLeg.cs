@@ -42,7 +42,7 @@ public partial class OrderLeg
     /// <summary>
     /// 盘口数值（如大小球 1.25, 1.5, 1.75 等；独赢为空）
     /// </summary>
-    public decimal? HandicapValue { get; set; }
+    public string? HandicapValue { get; set; }
 
     /// <summary>
     /// 投注选项（如 Under, Over, HOME, AWAY, DRAW 等）
@@ -79,16 +79,6 @@ public partial class OrderLeg
     /// 比赛编号
     /// </summary>
     public long? MatchId { get; set; }
-
-    /// <summary>
-    /// 下注时的比赛即时比分
-    /// </summary>
-    public long? BetHomeScore { get; set; }
-
-    /// <summary>
-    /// 比赛最终半场比分
-    /// </summary>
-    public long? BetAwayScore { get; set; }
 
     /// <summary>
     /// 比赛开始时间
