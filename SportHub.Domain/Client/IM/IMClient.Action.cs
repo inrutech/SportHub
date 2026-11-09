@@ -36,7 +36,7 @@ public partial class IMClient
             ["cookie"] = $"Authorization={token}",
         };
 
-        var r = await PostAsync<GetLeagueListResponse>("site.vic88888.com", "/site/customize/fa_football_league/executeService/listData", args, payload, headers);
+        var r = await PostAsync<GetLeagueListResponse>("https://site.vic88888.com", "/site/customize/fa_football_league/executeService/listData", args, payload, headers);
         return r;
     }
 
@@ -81,7 +81,7 @@ public partial class IMClient
         };
 
         return await PostAsync<GetOrderDetailResponse>(
-            "site.vic88888.com",
+            "https://site.vic88888.com",
             "/site/customize/fa_football_bet_order/executeService/get_json",
             args,
             payload,
@@ -111,7 +111,7 @@ public partial class IMClient
             ["Content-Type"] = "application/json;charset=UTF-8"
         };
 
-        return await PostAsync<GetOrderQueryResponse>("smartwork.ddns.net:26592", "/api/getOrders", null, payload, headers);
+        return await PostAsync<GetOrderQueryResponse>("http://smartwork.ddns.net:26592", "/api/getOrders", null, payload, headers);
     }
 
 }

@@ -24,7 +24,7 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         var startTime = new DateTime(2026, 7, 20);
         var endTime = new DateTime(2026, 7, 26);
 
-        var queryResult = await IMClient.GetOrderQueryAsync(apiKey, startTime, endTime, request.OrderId);
+        var queryResult = await IMClient.GetOrderQueryAsync(apiKey, startTime, endTime, request.OrderId, 1);
         if (queryResult.Code != ErrorCode.SYS_SUCCESS || queryResult.Result?.Code != 200)
         {
             return Result(false, ErrorCode.SYS_FAIL, $"同步失败：订单查询接口返回异常。{queryResult.ErrorDesc}");
@@ -58,13 +58,13 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
                 await DB.Order.AddAsync(order);
             }
 
-            order.LegCount = firstRow.LegCount ?? group.Count();
+            order.LegCount = firstRow.LegCount;
             order.Stake = ParseDecimal(firstRow.Stake);
             order.Odds = ParseDecimal(firstRow.OrderOdds);
             order.PotentialPayout = ParseDecimal(firstRow.PotentialReturn);
             order.ActualPayout = ParseDecimal(firstRow.Payout);
             order.OrderSettleCode = firstRow.SettleStatus;
-            order.OrderCode = ParseMarketCode(firstRow.BetType);
+            order.OrderCode = (long?)ParseOrderCode(firstRow.BetType, firstRow.IsParlay);
             order.UpdatedTime = now;
 
             var existingLegs = await DB.OrderLeg.Where(x => x.OrderId == order.Id).ToListAsync();
@@ -74,15 +74,15 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             }
 
             var legIndex = 1;
-            foreach (var row in group.OrderBy(x => x.LegNo ?? 0))
+            foreach (var row in group.OrderBy(x => x.LegNo))
             {
                 var leagueId = await ResolveLeagueIdAsync(row.LeagueChs);
                 var homeTeamId = await EnsureTeamAsync(row.HomeChs, leagueId);
                 var awayTeamId = await EnsureTeamAsync(row.AwayChs, leagueId);
 
-                if (row.MatchId.HasValue)
+                if (row.MatchId > 0)
                 {
-                    await EnsureMatchAsync(row.MatchId.Value, leagueId, homeTeamId, awayTeamId);
+                    await EnsureMatchAsync(row.MatchId, leagueId, homeTeamId, awayTeamId);
                 }
 
                 var orderLeg = new OrderLeg
@@ -92,7 +92,7 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
                     LeagueId = leagueId,
                     HomeTeamId = homeTeamId,
                     AwayTeamId = awayTeamId,
-                    LegIndex = row.LegNo ?? legIndex,
+                    LegIndex = row.LegNo,
                     MatchId = row.MatchId,
                     MatchStartTime = ParseTimeSeconds(row.MatchTime),
                     PeriodCode = ParsePeriodCode(row.Period),
@@ -239,18 +239,42 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
 
     private static long? ParseMarketCode(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        var orderCode = ParseOrderCode(value, null);
+        return orderCode.HasValue ? (long)orderCode.Value : null;
+    }
+
+    private static OrderCode? ParseOrderCode(string? betType, long? isParlay)
+    {
+        if (isParlay == 1)
+        {
+            return OrderCode.Parlay;
+        }
+
+        if (string.IsNullOrWhiteSpace(betType))
         {
             return null;
         }
 
-        return value.Trim().ToLowerInvariant() switch
+        return betType.Trim().ToLowerInvariant() switch
         {
-            "1x2" => 1,
-            "ah" => 2,
-            "ou" => 3,
-            "parlay" => 4,
-            _ => null
+            "1x2" => OrderCode.OneXTwo,
+            "ah" => OrderCode.AsianHandicap,
+            "ou" => OrderCode.OverUnder,
+            "oe" => OrderCode.OddEven,
+            "goals" => OrderCode.TotalGoals,
+            "bodan" => OrderCode.CorrectScore,
+            "half_full" => OrderCode.HalfFullTime,
+            "goal_order" => OrderCode.GoalOrder,
+            "dc" => OrderCode.DoubleChance,
+            "corner_ou" => OrderCode.CornerOverUnder,
+            "corner_other" => OrderCode.CornerOther,
+            "corner_oe" => OrderCode.CornerOddEven,
+            "oe_half" => OrderCode.HalfOddEven,
+            "tg_half" => OrderCode.HalfTotalGoals,
+            "overtime" => OrderCode.Overtime,
+            "champion" => OrderCode.Champion,
+            "parlay" => OrderCode.Parlay,
+            _ => OrderCode.None
         };
     }
 

@@ -8,13 +8,13 @@ public partial class GetOrderQueryResponse
     public long Code { get; set; }
 
     [JsonPropertyName("message")]
-    public string? Message { get; set; }
+    public string Message { get; set; }
 
     [JsonPropertyName("data")]
-    public OrderQueryData? Data { get; set; }
+    public Data Data { get; set; }
 }
 
-public partial class OrderQueryData
+public partial class Data
 {
     [JsonPropertyName("page")]
     public long Page { get; set; }
@@ -31,135 +31,144 @@ public partial class OrderQueryData
     [JsonPropertyName("row_count")]
     public long RowCount { get; set; }
 
+    [JsonPropertyName("start_time")]
+    public string StartTime { get; set; }
+
+    [JsonPropertyName("end_time")]
+    public string EndTime { get; set; }
+
+    [JsonPropertyName("settled")]
+    public long Settled { get; set; }
+
     [JsonPropertyName("rows")]
-    public List<OrderQueryRow>? Rows { get; set; }
+    public List<Row> Rows { get; set; }
 }
 
-public partial class OrderQueryRow
+public partial class Row
 {
     [JsonPropertyName("orderid")]
-    public string? Orderid { get; set; }
+    public string Orderid { get; set; }
 
     [JsonPropertyName("bet_id")]
-    public long? BetId { get; set; }
+    public long BetId { get; set; }
 
     [JsonPropertyName("row_type")]
-    public string? RowType { get; set; }
+    public string RowType { get; set; }
 
     [JsonPropertyName("is_parlay")]
-    public long? IsParlay { get; set; }
+    public long IsParlay { get; set; }
 
     [JsonPropertyName("leg_no")]
-    public long? LegNo { get; set; }
+    public long LegNo { get; set; }
 
     [JsonPropertyName("leg_count")]
-    public long? LegCount { get; set; }
+    public long LegCount { get; set; }
 
     [JsonPropertyName("user_id")]
-    public long? UserId { get; set; }
+    public long UserId { get; set; }
 
     [JsonPropertyName("user_name")]
-    public string? UserName { get; set; }
+    public string UserName { get; set; }
 
     [JsonPropertyName("store_id")]
-    public long? StoreId { get; set; }
+    public long StoreId { get; set; }
 
     [JsonPropertyName("store_name")]
-    public string? StoreName { get; set; }
+    public string StoreName { get; set; }
 
     [JsonPropertyName("shop_id")]
-    public long? ShopId { get; set; }
+    public long ShopId { get; set; }
 
     [JsonPropertyName("shop_name")]
-    public string? ShopName { get; set; }
+    public string ShopName { get; set; }
 
     [JsonPropertyName("bet_type")]
-    public string? BetType { get; set; }
+    public string BetType { get; set; }
 
     [JsonPropertyName("bet_type_name")]
-    public string? BetTypeName { get; set; }
+    public string BetTypeName { get; set; }
 
     [JsonPropertyName("period")]
-    public string? Period { get; set; }
+    public string Period { get; set; }
 
     [JsonPropertyName("is_rolling")]
-    public long? IsRolling { get; set; }
+    public long IsRolling { get; set; }
 
     [JsonPropertyName("match_id")]
-    public long? MatchId { get; set; }
+    public long MatchId { get; set; }
 
     [JsonPropertyName("league_chs")]
-    public string? LeagueChs { get; set; }
+    public string LeagueChs { get; set; }
 
     [JsonPropertyName("home_chs")]
-    public string? HomeChs { get; set; }
+    public string HomeChs { get; set; }
 
     [JsonPropertyName("away_chs")]
-    public string? AwayChs { get; set; }
-
-    [JsonPropertyName("match_time")]
-    public string? MatchTime { get; set; }
+    public string AwayChs { get; set; }
 
     [JsonPropertyName("market_title")]
-    public string? MarketTitle { get; set; }
+    public string MarketTitle { get; set; }
 
     [JsonPropertyName("line_display")]
-    public string? LineDisplay { get; set; }
+    public string LineDisplay { get; set; }
 
     [JsonPropertyName("selection_display")]
-    public string? SelectionDisplay { get; set; }
+    public string SelectionDisplay { get; set; }
 
     [JsonPropertyName("side")]
-    public string? Side { get; set; }
+    public string Side { get; set; }
 
     [JsonPropertyName("pick_label")]
-    public string? PickLabel { get; set; }
+    public string PickLabel { get; set; }
 
     [JsonPropertyName("order_odds")]
-    public string? OrderOdds { get; set; }
+    public string OrderOdds { get; set; }
 
     [JsonPropertyName("leg_odds")]
     public string? LegOdds { get; set; }
 
     [JsonPropertyName("stake")]
-    public string? Stake { get; set; }
+    public string Stake { get; set; }
 
     [JsonPropertyName("potential_return")]
-    public string? PotentialReturn { get; set; }
+    public string PotentialReturn { get; set; }
 
     [JsonPropertyName("payout")]
-    public string? Payout { get; set; }
+    public string Payout { get; set; }
 
     [JsonPropertyName("payout_net")]
-    public string? PayoutNet { get; set; }
+    public string PayoutNet { get; set; }
 
     [JsonPropertyName("win_loss")]
-    public string? WinLoss { get; set; }
+    public string WinLoss { get; set; }
 
     [JsonPropertyName("settle_status")]
-    public long? SettleStatus { get; set; }
+    public long SettleStatus { get; set; }
 
     [JsonPropertyName("settle_status_name")]
-    public string? SettleStatusName { get; set; }
+    public string SettleStatusName { get; set; }
 
     [JsonPropertyName("money_status")]
-    public long? MoneyStatus { get; set; }
+    public long MoneyStatus { get; set; }
 
     [JsonPropertyName("money_status_name")]
-    public string? MoneyStatusName { get; set; }
+    public string MoneyStatusName { get; set; }
 
     [JsonPropertyName("bet_time")]
-    public string? BetTime { get; set; }
+    public string BetTime { get; set; }
 
     [JsonPropertyName("bet_ts")]
-    public long? BetTs { get; set; }
+    public long BetTs { get; set; }
 
     [JsonPropertyName("settle_time")]
-    public string? SettleTime { get; set; }
+    public string SettleTime { get; set; }
 
     [JsonPropertyName("settle_ts")]
-    public long? SettleTs { get; set; }
+    public long SettleTs { get; set; }
 
     [JsonPropertyName("bet_ip")]
-    public string? BetIp { get; set; }
+    public string BetIp { get; set; }
+
+    [JsonPropertyName("match_time")]
+    public string? MatchTime { get; set; }
 }

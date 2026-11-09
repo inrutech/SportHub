@@ -154,7 +154,7 @@ public partial class IMClient(IServiceProvider service)
 
     protected string RenderUrl(string host, string action, Dictionary<string, object?>? args = null)
     {
-        var url = host.IsNullOrEmpty() ? action : $"https://{host}{action}";
+        var url = host.IsNullOrEmpty() ? action : $"{host}{action}";
         if (args?.Count > 0)
         {
             var query = string.Join("&", args.Where(a => a.Value != null).Select(a => $"{a.Key}={Uri.EscapeDataString(a.Value?.ToString() ?? string.Empty)}"));
