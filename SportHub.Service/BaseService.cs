@@ -43,6 +43,16 @@ public partial class BaseService(IServiceProvider provider)
 
     public ConfigService ConfigService => _provider.GetRequiredService<ConfigService>();
 
+    public LeagueService LeagueService => _provider.GetRequiredService<LeagueService>();
+
+    public TeamService TeamService => _provider.GetRequiredService<TeamService>();
+
+    public MatchService MatchService => _provider.GetRequiredService<MatchService>();
+
+    public OrderService OrderService => _provider.GetRequiredService<OrderService>();
+
+    public OrderLegService OrderLegService => _provider.GetRequiredService<OrderLegService>();
+
     protected SysResult<T> Result<T>(T? model)
     {
         return Result(model, ErrorCode.SYS_SUCCESS, null);

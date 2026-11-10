@@ -23,6 +23,8 @@ public partial class DBContext : DbContext
 
     public virtual DbSet<OrderLeg> OrderLeg { get; set; }
 
+    public virtual DbSet<Task> Task { get; set; }
+
     public virtual DbSet<Team> Team { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -147,6 +149,17 @@ public partial class DBContext : DbContext
                 .HasPrecision(19, 4)
                 .HasComment("实际结算有效赔率（全赢为原始赔率，赢一半为折算赔率，走水为1.0等）");
             entity.Property(e => e.SourceNo).HasComment("源编号");
+        });
+
+        modelBuilder.Entity<Task>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("Task_pkey");
+
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Ratio)
+                .HasPrecision(19, 4)
+                .HasComment("倍数,,如果方向则选择负数");
+            entity.Property(e => e.TargetSourceCode).HasComment("目标平台");
         });
 
         modelBuilder.Entity<Team>(entity =>

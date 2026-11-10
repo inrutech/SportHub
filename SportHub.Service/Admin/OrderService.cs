@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 using SportHub.Core;
 using SportHub.Domain.Admin.Request.Order;
+using SportHub.Domain.Admin.Response.Order;
 using SportHub.Domain.Client.IM.Response;
 using SportHub.Repository.Model;
 
@@ -14,12 +15,18 @@ namespace SportHub.Service.Admin;
 
 public class OrderService(IServiceProvider provider) : BaseService(provider)
 {
-    public async Task<SysResult<bool>> SyncOrderAsync(SyncOrderRequest request)
+    public async Task<SysResult<SyncOrderResponse>> SyncOrderAsync(SyncOrderRequest request)
     {
+        SyncOrderResponse? r = null;
+        var order = await DB.Order.FirstOrDefaultAsync(x => x.SourceNo == request.OrderId);
+        if (order != null)
+        {
+            return Result(r, ErrorCode.USER_CUSTOM, "订单已存在，无需重复同步");
+        }
         var apiKey = await ConfigService.GetValueAsync(GlobalHash.IMApiKey);
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            return Result(false, ErrorCode.USER_CUSTOM, "IMApiKey 配置不存在");
+            return Result(r, ErrorCode.USER_CUSTOM, "IMApiKey 配置不存在");
         }
 
         var startTime = new DateTime(2026, 7, 20);
@@ -28,106 +35,100 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         var queryResult = await IMClient.GetOrderQueryAsync(apiKey, startTime, endTime, request.OrderId, 1);
         if (queryResult.Code != ErrorCode.SYS_SUCCESS || queryResult.Result?.Code != 200)
         {
-            return Result(false, ErrorCode.SYS_FAIL, $"同步失败：订单查询接口返回异常。{queryResult.ErrorDesc}");
+            return Result(r, ErrorCode.SYS_FAIL, $"同步失败：订单查询接口返回异常。{queryResult.ErrorDesc}");
         }
 
         var rows = queryResult.Result.Data?.Rows ?? [];
         if (rows.Count == 0)
         {
-            return Result(true);
+            return Result(r);
         }
 
-        var groupedRows = rows
-            .Where(x => !string.IsNullOrWhiteSpace(x.Orderid))
-            .GroupBy(x => x.Orderid)
-            .ToList();
+        var firstRow = rows.FirstOrDefault();
 
-        foreach (var group in groupedRows)
+        order = new Order
         {
-            var firstRow = group.First();
-            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var order = await DB.Order.FirstOrDefaultAsync(x => x.SourceNo == firstRow.Orderid);
-            if (order == null)
+            Id = Snowflake.NewID(),
+            SourceNo = request.OrderId,
+            Flag = 0,
+            CreatedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            LegCount = firstRow.LegCount,
+            Stake = ParseDecimal(firstRow.Stake),
+            Odds = ParseDecimal(firstRow.OrderOdds),
+            PotentialPayout = ParseDecimal(firstRow.PotentialReturn),
+            ActualPayout = ParseDecimal(firstRow.Payout),
+            OrderSettleCode = ParseOrderSettleCode(firstRow.MoneyStatus, firstRow.SettleStatus),
+            OrderCode = (long)ParseOrderCode(firstRow.IsParlay, firstRow.IsRolling),
+            UpdatedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+        await DB.Order.AddAsync(order);
+
+        var leagueList = await DB.League.ToListAsync();
+        var teamList = await DB.Team.ToListAsync();
+        var matchList = await DB.Match.ToListAsync();
+
+        var existingLegs = await DB.OrderLeg.Where(x => x.OrderId == order.Id).ToListAsync();
+        var legList = new List<OrderLeg>();
+
+        foreach (var row in rows.OrderBy(x => x.LegNo))
+        {
+            var league = await ResolveLeagueAsync(leagueList, row.LeagueChs);
+            var homeTeam = await EnsureTeamAsync(teamList, row.HomeChs, league.Id);
+            var awayTeam = await EnsureTeamAsync(teamList, row.AwayChs, league.Id);
+            var match = await EnsureMatchAsync(matchList, row.MatchId, league.Id, homeTeam.Id, awayTeam.Id);
+
+            var leg = existingLegs.FirstOrDefault(x => x.SourceNo == row.BetId);
+            if (leg == null)
             {
-                order = new Order
-                {
-                    Id = Snowflake.NewID(),
-                    SourceNo = firstRow.Orderid,
-                    Flag = 0,
-                    CreatedTime = now
-                };
-                await DB.Order.AddAsync(order);
-            }
-
-            order.LegCount = firstRow.LegCount;
-            order.Stake = ParseDecimal(firstRow.Stake);
-            order.Odds = ParseDecimal(firstRow.OrderOdds);
-            order.PotentialPayout = ParseDecimal(firstRow.PotentialReturn);
-            order.ActualPayout = ParseDecimal(firstRow.Payout);
-            order.OrderSettleCode = ParseOrderSettleCode(firstRow.MoneyStatus, firstRow.SettleStatus);
-            order.OrderCode = (long)ParseOrderCode(firstRow.IsParlay, firstRow.IsRolling);
-            order.UpdatedTime = now;
-
-            var existingLegs = await DB.OrderLeg.Where(x => x.OrderId == order.Id).ToListAsync();
-            if (existingLegs.Count > 0)
-            {
-                DB.OrderLeg.RemoveRange(existingLegs);
-            }
-
-            var legIndex = 1;
-            foreach (var row in group.OrderBy(x => x.LegNo))
-            {
-                var leagueId = await ResolveLeagueIdAsync(row.LeagueChs);
-                var homeTeamId = await EnsureTeamAsync(row.HomeChs, leagueId);
-                var awayTeamId = await EnsureTeamAsync(row.AwayChs, leagueId);
-
-                if (row.MatchId > 0)
-                {
-                    await EnsureMatchAsync(row.MatchId, leagueId, homeTeamId, awayTeamId);
-                }
-
-                var orderLeg = new OrderLeg
+                leg = new OrderLeg
                 {
                     Id = Snowflake.NewID(),
                     OrderId = order.Id,
-                    LeagueId = leagueId,
-                    HomeTeamId = homeTeamId,
-                    AwayTeamId = awayTeamId,
-                    LegIndex = row.LegNo,
-                    MatchId = row.MatchId,
-                    MatchTime = ParseTimeSeconds(row.MatchTime) ?? ParseTimeSeconds(row.BetTime) ?? ParseUnixSeconds(row.BetTs),
-                    PeriodCode = ParsePeriodCode(row.Period),
-                    MarketCode = ParseMarketCode(row.BetType),
-                    SelectionCode = ParseSelectionCode(row.Side),
-                    BetOdds = ParseDecimal(row.LegOdds) ?? ParseDecimal(row.OrderOdds),
-                    SettledOdds = ParseDecimal(row.OrderOdds),
-                    LegSettleCode = ParseLegSettleCode(row.SettleStatus),
-                    SourceNo = ParseLong(row.Orderid),
-                    HandicapValue = ParseHandicapValue(row.SelectionDisplay),
-                    Describe = row.ToJson(),
                     Flag = 0,
-                    CreatedTime = now,
-                    UpdatedTime = now
+                    CreatedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 };
-
-                await DB.OrderLeg.AddAsync(orderLeg);
-                legIndex++;
+                legList.Add(leg);
             }
+
+            leg.LeagueId = league.Id;
+            leg.HomeTeamId = homeTeam.Id;
+            leg.AwayTeamId = awayTeam.Id;
+            leg.LegIndex = row.LegNo;
+            leg.MatchId = row.MatchId;
+            leg.MatchTime = ParseTimeSeconds(row.MatchTime);
+            leg.PeriodCode = ParsePeriodCode(row.Period);
+            leg.MarketCode = ParseMarketCode(row.BetType);
+            leg.SelectionCode = ParseSelectionCode(row.Side);
+            leg.BetOdds = ParseDecimal(row.LegOdds);
+            leg.SettledOdds = ParseDecimal(row.OrderOdds);
+            leg.LegSettleCode = ParseLegSettleCode(row.SettleStatus);
+            leg.SourceNo = row.BetId;
+            leg.HandicapValue = ParseHandicapValue(row.SelectionDisplay);
+            leg.Describe = row.ToJson();
+
+            leg.UpdatedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         }
+
+        await DB.OrderLeg.AddRangeAsync(legList);
 
         await DB.SaveChangesAsync();
-        return Result(true);
+
+        r = new SyncOrderResponse
+        {
+            OrderInfo = OrderService.RenderOrderInfo(order),
+            OrderLegList = legList.Select(OrderLegService.RenderOrderLegInfo).ToList(),
+            LeagueList = leagueList.Select(LeagueService.RenderLeagueInfo).ToList(),
+            TeamList = teamList.Select(TeamService.RenderTeamInfo).ToList(),
+            MatchList = matchList.Select(MatchService.RenderMatchInfo).ToList()
+        };
+
+        return Result(r);
     }
 
-    private async Task<long?> ResolveLeagueIdAsync(string? leagueName)
+    private async Task<League?> ResolveLeagueAsync(List<League> leagueList, string? leagueName)
     {
-        if (string.IsNullOrWhiteSpace(leagueName))
-        {
-            return null;
-        }
-
         var name = leagueName.Trim();
-        var league = await DB.League.FirstOrDefaultAsync(x =>
+        var league = leagueList.FirstOrDefault(x =>
             (!string.IsNullOrWhiteSpace(x.NameZhCn) && x.NameZhCn == name) ||
             (!string.IsNullOrWhiteSpace(x.NameZhTw) && x.NameZhTw == name) ||
             (!string.IsNullOrWhiteSpace(x.NameEn) && x.NameEn == name) ||
@@ -135,68 +136,58 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             (!string.IsNullOrWhiteSpace(x.ShortNameZhTw) && x.ShortNameZhTw == name) ||
             (!string.IsNullOrWhiteSpace(x.ShortNameEn) && x.ShortNameEn == name));
 
-        return league?.Id;
+        return league;
     }
 
-    private async Task<long?> EnsureTeamAsync(string? teamName, long? leagueId)
+    private async Task<Team> EnsureTeamAsync(List<Team> teamList, string? teamName, long? leagueId)
     {
-        if (string.IsNullOrWhiteSpace(teamName))
-        {
-            return null;
-        }
-
         var name = teamName.Trim();
-        var team = await DB.Team.FirstOrDefaultAsync(x =>
+        var team = teamList.FirstOrDefault(x =>
             x.LeagueId == leagueId &&
             ((x.NameZhCn != null && x.NameZhCn == name) ||
              (x.NameZhTw != null && x.NameZhTw == name) ||
              (x.NameEn != null && x.NameEn == name)));
 
-        if (team != null)
+        if (team == null)
         {
-            return team.Id;
+            var createdAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            team = new Team
+            {
+                Id = Snowflake.NewID(),
+                LeagueId = leagueId,
+                NameEn = name,
+                NameZhCn = name,
+                NameZhTw = name,
+                Flag = 0,
+                CreatedTime = createdAt,
+                UpdatedTime = createdAt
+            };
+            await DB.Team.AddAsync(team);
+            teamList.Add(team);
         }
-
-        var createdAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var newTeam = new Team
-        {
-            Id = Snowflake.NewID(),
-            LeagueId = leagueId,
-            NameEn = name,
-            NameZhCn = name,
-            NameZhTw = name,
-            Flag = 0,
-            CreatedTime = createdAt,
-            UpdatedTime = createdAt
-        };
-
-        await DB.Team.AddAsync(newTeam);
-        return newTeam.Id;
+        return team;
     }
 
-    private async Task EnsureMatchAsync(long matchId, long? leagueId, long? homeTeamId, long? awayTeamId)
+    private async Task<Match> EnsureMatchAsync(List<Match> matchList, long matchId, long? leagueId, long? homeTeamId, long? awayTeamId)
     {
-        var match = await DB.Match.FirstOrDefaultAsync(x => x.Id == matchId);
-        if (match != null)
+        var match = matchList.FirstOrDefault(x => x.Id == matchId);
+        if (match == null)
         {
-            match.LeagueId ??= leagueId;
-            match.HomeTeamId ??= homeTeamId;
-            match.AwayTeamId ??= awayTeamId;
-            match.UpdatedTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            return;
+            var createdAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            match = new Match
+            {
+                Id = matchId,
+                LeagueId = leagueId,
+                HomeTeamId = homeTeamId,
+                AwayTeamId = awayTeamId,
+                Flag = 0,
+                CreatedTime = createdAt,
+                UpdatedTime = createdAt
+            };
+            await DB.Match.AddAsync(match);
+            matchList.Add(match);
         }
-
-        var createdAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        await DB.Match.AddAsync(new Match
-        {
-            Id = matchId,
-            LeagueId = leagueId,
-            HomeTeamId = homeTeamId,
-            AwayTeamId = awayTeamId,
-            Flag = 0,
-            CreatedTime = createdAt,
-            UpdatedTime = createdAt
-        });
+        return match;
     }
 
     private static long? ParseLong(string? value)
@@ -410,5 +401,10 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         };
 
         return selectionCode == SelectionCode.None ? null : (long)selectionCode;
+    }
+
+    public async Task<SysResult<List<OrderListResponse>>> OrderListAsync(OrderListRequest request)
+    {
+        throw new NotImplementedException();
     }
 }
