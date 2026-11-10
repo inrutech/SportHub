@@ -20,8 +20,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SportHub.Repository\SportHub.Repository.csproj" />
-    <ProjectReference Include="..\SportHub.Service\SportHub.Service.csproj" />
     <ProjectReference Include="..\SportHub.Worker\SportHub.Worker.csproj" />
   </ItemGroup>
 

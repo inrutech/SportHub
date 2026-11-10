@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using SportHub.Repository.Model;
+using SportHub.Worker.Client;
 
 using System.ComponentModel;
 
@@ -27,9 +28,4 @@ public static class Startup
         builder.Services.AddHostedService<InitWorker>();
 
     }
-}
-
-public sealed class SyncOrderOptions
-{
-    public string? OrderId { get; set; }
 }
