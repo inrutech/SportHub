@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.12.12328.396 insiders
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportHub", "SportHub\SportHub.csproj", "{225AA52A-C41E-4B5A-ACFE-264E775DDA87}"
 EndProject
@@ -14,6 +14,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportHub.Repository", "SportHub.Repository\SportHub.Repository.csproj", "{CCAE92A8-0254-448B-A086-099DA2C85700}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportHub.Worker", "SportHub.Worker\SportHub.Worker.csproj", "{47D0F65F-96F2-4F50-B51A-B23A022AB382}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportHub.Client", "SportHub.Client\SportHub.Client.csproj", "{DF8A83B4-0455-481C-A363-CB77CD021511}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -97,8 +99,23 @@ Global
 		{47D0F65F-96F2-4F50-B51A-B23A022AB382}.Release|x64.Build.0 = Release|Any CPU
 		{47D0F65F-96F2-4F50-B51A-B23A022AB382}.Release|x86.ActiveCfg = Release|Any CPU
 		{47D0F65F-96F2-4F50-B51A-B23A022AB382}.Release|x86.Build.0 = Release|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Debug|x64.Build.0 = Debug|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Debug|x86.Build.0 = Debug|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Release|x64.ActiveCfg = Release|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Release|x64.Build.0 = Release|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Release|x86.ActiveCfg = Release|Any CPU
+		{DF8A83B4-0455-481C-A363-CB77CD021511}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {16859FC2-0E29-4C90-962F-850CC0624930}
 	EndGlobalSection
 EndGlobal
