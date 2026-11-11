@@ -4,6 +4,8 @@ using SportHub.Domain.Context;
 using SportHub.Repository.Model;
 using SportHub.Service.Common;
 
+using Task = System.Threading.Tasks.Task;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;

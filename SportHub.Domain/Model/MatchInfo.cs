@@ -26,11 +26,6 @@ public partial class MatchInfo
     public long? AwayTeamId { get; set; }
 
     /// <summary>
-    /// 数据源映射
-    /// </summary>
-    public Dictionary<long, string>? SourceArray { get; set; }
-
-    /// <summary>
     /// 创建时间
     /// </summary>
     public long CreatedTime { get; set; }

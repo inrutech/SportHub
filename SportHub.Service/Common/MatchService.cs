@@ -31,7 +31,6 @@ namespace SportHub.Service.Common
                 LeagueId = info.LeagueId,
                 HomeTeamId = info.HomeTeamId,
                 AwayTeamId = info.AwayTeamId,
-                SourceArray = info.SourceArray,
                 CreatedTime = info.CreatedTime,
                 UpdatedTime = info.UpdatedTime,
                 Disabled = (info.Flag & (long)CommonCode.Disabled) > 0,

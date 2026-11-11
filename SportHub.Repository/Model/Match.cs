@@ -16,8 +16,6 @@ public partial class Match
 
     public long? AwayTeamId { get; set; }
 
-    public string? SourceArrayJson { get; set; }
-
     public long Flag { get; set; }
 
     public long CreatedTime { get; set; }

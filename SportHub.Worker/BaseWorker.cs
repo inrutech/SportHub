@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
+using Task = System.Threading.Tasks.Task;
 using SportHub.Repository.Model;
 
 using Zero.Core.Extensions;

@@ -95,7 +95,6 @@ public partial class DBContext : DbContext
 
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.LeagueId).HasComment("联盟编号");
-            entity.Property(e => e.SourceArrayJson).HasColumnType("jsonb");
         });
 
         modelBuilder.Entity<Order>(entity =>

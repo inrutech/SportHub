@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
+using Task = System.Threading.Tasks.Task;
 using Zero.Core.Extensions;
 
 namespace SportHub.Worker
