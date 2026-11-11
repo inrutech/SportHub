@@ -10,11 +10,44 @@ using SportHub.Repository.Model;
 
 using Zero.Core.Extensions;
 using Zero.Core.Result;
+using Zero.Core.Web;
+using Zero.Core.Web.Request;
 
 namespace SportHub.Service.Admin;
 
 public class OrderService(IServiceProvider provider) : BaseService(provider)
 {
+    public async Task<SysResult<PageList<OrderPageResponse>>> PageAsync(OrderPageRequest request)
+    {
+        var query = DB.Order.AsNoTracking();
+
+        if (request.Id > 0)
+        {
+            query = query.Where(x => x.Id == request.Id);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.SourceNo))
+        {
+            query = query.Where(x => x.SourceNo != null && x.SourceNo.Contains(request.SourceNo));
+        }
+
+        var list = await query.OrderByDescending(x => x.CreatedTime)
+            .Skip(request.PageSkip)
+            .Take(request.PageSize)
+            .ToListAsync();
+        var count = await query.CountAsync();
+
+        var result = new PageList<OrderPageResponse>(
+            list.Select(x => new OrderPageResponse
+            {
+                OrderInfo = base.OrderService.RenderOrderInfo(x),
+            }).ToList(),
+            request,
+            count);
+
+        return Result(result);
+    }
+
     public async Task<SysResult<SyncOrderResponse>> SyncOrderAsync(SyncOrderRequest request)
     {
         SyncOrderResponse? r = null;

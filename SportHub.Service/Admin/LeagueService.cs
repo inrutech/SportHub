@@ -1,14 +1,54 @@
 using Microsoft.EntityFrameworkCore;
 
 using SportHub.Core;
+using SportHub.Domain.Admin.Request.League;
+using SportHub.Domain.Admin.Response.League;
 using SportHub.Repository.Model;
 
 using Zero.Core.Result;
+using Zero.Core.Web;
+using Zero.Core.Web.Request;
 
 namespace SportHub.Service.Admin;
 
 public class LeagueService(IServiceProvider provider) : BaseService(provider)
 {
+    public async Task<SysResult<PageList<LeaguePageResponse>>> PageAsync(LeaguePageRequest request)
+    {
+        var query = DB.League.AsNoTracking();
+
+        if (request.Id > 0)
+        {
+            query = query.Where(x => x.Id == request.Id);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.NameEn))
+        {
+            query = query.Where(x => x.NameEn != null && x.NameEn.Contains(request.NameEn));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.NameZhCn))
+        {
+            query = query.Where(x => x.NameZhCn != null && x.NameZhCn.Contains(request.NameZhCn));
+        }
+
+        var list = await query.OrderByDescending(x => x.CreatedTime)
+            .Skip(request.PageSkip)
+            .Take(request.PageSize)
+            .ToListAsync();
+        var count = await query.CountAsync();
+
+        var result = new PageList<LeaguePageResponse>(
+            list.Select(x => new LeaguePageResponse
+            {
+                LeagueInfo = base.LeagueService.RenderLeagueInfo(x),
+            }).ToList(),
+            request,
+            count);
+
+        return Result(result);
+    }
+
     public async Task<SysResult<bool>> SyncLeagueAsync()
     {
         var token = await ConfigService.GetValueAsync(GlobalHash.LoginToken);
