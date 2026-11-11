@@ -43,6 +43,8 @@ public partial class BaseService(IServiceProvider provider)
 
     public ConfigService ConfigService => _provider.GetRequiredService<ConfigService>();
 
+    public AdminService AdminService => _provider.GetRequiredService<AdminService>();
+
     public LeagueService LeagueService => _provider.GetRequiredService<LeagueService>();
 
     public TeamService TeamService => _provider.GetRequiredService<TeamService>();
