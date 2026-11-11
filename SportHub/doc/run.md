@@ -1,4 +1,3 @@
-cd SportHub/bin/Debug/net10.0
 
 dotnet SportHub.dll --environment "Staging" "--urls=http://*:11666"
 
