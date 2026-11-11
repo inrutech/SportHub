@@ -7,9 +7,9 @@ public partial class Task
 {
     public long Id { get; set; }
 
-    public List<long>? OrderId { get; set; }
+    public long? OrderId { get; set; }
 
-    public long? OrderLegIdList { get; set; }
+    public List<long>? OrderLegIdList { get; set; }
 
     /// <summary>
     /// 目标平台

@@ -20,7 +20,7 @@ public partial class TaskInfo
     /// <summary>
     /// 订单腿编号集合
     /// </summary>
-    public long? OrderLegIdList { get; set; }
+    public List<long>? OrderLegIdList { get; set; }
 
     /// <summary>
     /// 目标平台
@@ -46,4 +46,5 @@ public partial class TaskInfo
     /// 是否禁用
     /// </summary>
     public bool Disabled { get; set; }
+    public ProcessCode ProcessCode { get; set; }
 }

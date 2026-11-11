@@ -33,6 +33,7 @@ namespace SportHub.Service.Common
                 OrderId = info.OrderId,
                 OrderLegIdList = info.OrderLegIdList,
                 TargetSourceCode = (info.TargetSourceCode ?? 0).ToEnum(SourceCode.None),
+                ProcessCode = (info.ProcessCode ?? 0).ToEnum(ProcessCode.None),
                 Ratio = info.Ratio,
                 CreatedTime = info.CreatedTime,
                 UpdatedTime = info.UpdatedTime,
