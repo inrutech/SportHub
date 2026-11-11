@@ -13,7 +13,7 @@ namespace SportHub.Controller.Admin;
 
 public class AdminController(AdminService service) : BaseController
 {
-
+    [AdminValid]
     [HttpGet("Page")]
     public Task<SysResult<PageList<AdminPageResponse>>> PageAsync([FromQuery] AdminPageRequest request)
     {

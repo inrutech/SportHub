@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using SportHub.Domain.Admin.Request.Order;
 using SportHub.Domain.Admin.Response.Order;
+using SportHub.Filter;
 using SportHub.Service.Admin;
 
 using Zero.Core.Result;
@@ -13,18 +14,21 @@ namespace SportHub.Controller.Admin;
 
 public class OrderController(OrderService service) : BaseController
 {
+    [AdminValid]
     [HttpGet("Page")]
     public Task<SysResult<PageList<OrderPageResponse>>> PageAsync([FromQuery] OrderPageRequest request)
     {
         return service.PageAsync(request);
     }
 
+    [AdminValid]
     [HttpPost("SyncOrder")]
     public Task<SysResult<SyncOrderResponse>> SyncOrderAsync(SyncOrderRequest request)
     {
         return service.SyncOrderAsync(request);
     }
 
+    [AdminValid]
     [HttpGet("OrderList")]
     public Task<SysResult<List<OrderListResponse>>> OrderListAsync([FromQuery] OrderListRequest request)
     {

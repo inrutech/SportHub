@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using SportHub.Domain.Admin.Request.Task;
 using SportHub.Domain.Admin.Response.Task;
+using SportHub.Filter;
 using SportHub.Service.Admin;
 
 using Zero.Core.Result;
@@ -11,13 +12,14 @@ namespace SportHub.Controller.Admin;
 
 public class TaskController(TaskService service) : BaseController
 {
-
+    [AdminValid]
     [HttpPost("Set")]
     public Task<SysResult<bool>> SetAsync(SetRequest request)
     {
         return service.SetAsync(request);
     }
 
+    [AdminValid]
     [HttpGet("List")]
     public Task<SysResult<List<TaskPageResponse>>> PageAsync([FromQuery] TaskPageRequest request)
     {

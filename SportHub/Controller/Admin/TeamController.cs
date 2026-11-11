@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using SportHub.Domain.Admin.Request.Team;
 using SportHub.Domain.Admin.Response.Team;
+using SportHub.Filter;
 using SportHub.Service.Admin;
 
 using Zero.Core.Result;
@@ -12,6 +13,7 @@ namespace SportHub.Controller.Admin;
 
 public class TeamController(TeamService service) : BaseController
 {
+    [AdminValid]
     [HttpGet("Page")]
     public Task<SysResult<PageList<TeamPageResponse>>> PageAsync([FromQuery] TeamPageRequest request)
     {
