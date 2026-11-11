@@ -8,7 +8,7 @@ public class SetRequest
     public long? OrderId { get; set; }
 
     [Required]
-    public List<long>? OrderIdList { get; set; }
+    public List<long>? OrderLegIdList { get; set; }
 
     [Required]
     public SourceCode? TargetSourceCode { get; set; }

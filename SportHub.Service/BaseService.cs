@@ -55,6 +55,8 @@ public partial class BaseService(IServiceProvider provider)
 
     public OrderLegService OrderLegService => _provider.GetRequiredService<OrderLegService>();
 
+    public TaskService TaskService => _provider.GetRequiredService<TaskService>();
+
     protected SysResult<T> Result<T>(T? model)
     {
         return Result(model, ErrorCode.SYS_SUCCESS, null);

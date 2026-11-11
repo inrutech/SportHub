@@ -7,7 +7,7 @@ public partial class Task
 {
     public long Id { get; set; }
 
-    public long? OrderId { get; set; }
+    public List<long>? OrderId { get; set; }
 
     public long? OrderLegIdList { get; set; }
 
@@ -20,6 +20,8 @@ public partial class Task
     /// 倍数,,如果方向则选择负数
     /// </summary>
     public decimal? Ratio { get; set; }
+
+    public long? ProcessCode { get; set; }
 
     public long Flag { get; set; }
 
