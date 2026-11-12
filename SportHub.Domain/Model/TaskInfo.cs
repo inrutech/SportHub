@@ -46,6 +46,14 @@ public partial class TaskInfo
     /// 是否禁用
     /// </summary>
     public bool Disabled { get; set; }
+
+    /// <summary>
+    /// 处理状态
+    /// </summary>
     public ProcessCode ProcessCode { get; set; }
+
+    /// <summary>
+    /// 处理结果
+    /// </summary>
     public string? Result { get; set; }
 }

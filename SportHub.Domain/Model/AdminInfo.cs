@@ -38,5 +38,9 @@ public partial class AdminInfo
     /// 更新时间
     /// </summary>
     public long UpdatedTime { get; set; }
+
+    /// <summary>
+    /// 是否禁用
+    /// </summary>
     public bool Disabled { get; set; }
 }
