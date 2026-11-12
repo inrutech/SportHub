@@ -10,12 +10,6 @@ public class SetRequest
     public long? AdminId { get; set; }
 
     /// <summary>
-    /// 角色类型
-    /// </summary>
-    [Required]
-    public long? RoleId { get; set; }
-
-    /// <summary>
     /// 别名
     /// </summary>
     [Required]
