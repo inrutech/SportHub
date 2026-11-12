@@ -92,7 +92,7 @@ public class LeagueService(IServiceProvider provider) : BaseService(provider)
                 {
                     Id = item.Id,
                     Flag = 0,
-                    CreatedTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                    CreatedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                 };
                 await DB.League.AddAsync(league);
             }
@@ -108,7 +108,7 @@ public class LeagueService(IServiceProvider provider) : BaseService(provider)
             league.CountryZhTw = item.CountryZhTw;
             league.LeagueCode = item.LeagueCode;
             league.SourceArray = item.SourceArray;
-            league.UpdatedTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            league.UpdatedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         }
         await DB.SaveChangesAsync();
         return Result(true);

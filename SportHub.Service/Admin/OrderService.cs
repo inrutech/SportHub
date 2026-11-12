@@ -196,7 +196,7 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
 
         if (team == null)
         {
-            var createdAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var createdAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             team = new Team
             {
                 Id = Snowflake.NewID(),
@@ -219,7 +219,7 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         var match = matchList.FirstOrDefault(x => x.Id == matchId);
         if (match == null)
         {
-            var createdAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var createdAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             match = new Match
             {
                 Id = matchId,
@@ -314,18 +314,18 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         if (DateTime.TryParseExact(text, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
         {
             var unspecified = DateTime.SpecifyKind(dt, DateTimeKind.Unspecified);
-            return new DateTimeOffset(unspecified, TimeSpan.FromHours(9)).ToUnixTimeSeconds();
+            return new DateTimeOffset(unspecified, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
         }
 
         if (DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var dto))
         {
-            return dto.ToUnixTimeSeconds();
+            return dto.ToUnixTimeMilliseconds();
         }
 
         if (DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out dt))
         {
             var unspecified = DateTime.SpecifyKind(dt, DateTimeKind.Unspecified);
-            return new DateTimeOffset(unspecified, TimeSpan.FromHours(9)).ToUnixTimeSeconds();
+            return new DateTimeOffset(unspecified, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
         }
 
         return null;

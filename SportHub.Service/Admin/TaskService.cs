@@ -49,7 +49,7 @@ public class TaskService(IServiceProvider provider) : BaseService(provider)
 
     public async Task<SysResult<bool>> SetAsync(SetRequest request)
     {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         var task = new Repository.Model.Task
         {
