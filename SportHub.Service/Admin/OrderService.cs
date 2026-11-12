@@ -37,10 +37,23 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             .ToListAsync();
         var count = await query.CountAsync();
 
+        var orderIdList = list.Select(x => x.Id).ToList();
+        var legList = await DB.OrderLeg.AsNoTracking()
+            .Where(x => orderIdList.Contains(x.OrderId ?? 0))
+            .ToListAsync();
+
+        var leagueList = await DB.League.ToListAsync();
+        var teamList = await DB.Team.ToListAsync();
+        var matchList = await DB.Match.ToListAsync();
+
         var result = new PageList<OrderPageResponse>(
             list.Select(x => new OrderPageResponse
             {
                 OrderInfo = base.OrderService.RenderOrderInfo(x),
+                OrderLegList = legList.Where(l => l.OrderId == x.Id).Select(OrderLegService.RenderOrderLegInfo).ToList(),
+                LeagueList = leagueList.Select(LeagueService.RenderLeagueInfo).ToList(),
+                TeamList = teamList.Select(TeamService.RenderTeamInfo).ToList(),
+                MatchList = matchList.Select(MatchService.RenderMatchInfo).ToList()
             }).ToList(),
             request,
             count);
@@ -436,8 +449,4 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         return selectionCode == SelectionCode.None ? null : (long)selectionCode;
     }
 
-    public async Task<SysResult<List<OrderListResponse>>> OrderListAsync(OrderListRequest request)
-    {
-        throw new NotImplementedException();
-    }
 }

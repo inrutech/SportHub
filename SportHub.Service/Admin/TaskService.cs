@@ -27,9 +27,21 @@ public class TaskService(IServiceProvider provider) : BaseService(provider)
             .OrderByDescending(x => x.CreatedTime)
             .ToListAsync();
 
+        var order = await DB.Order.AsNoTracking().FirstOrDefaultAsync(x => x.Id == orderId);
+        var legList = await DB.OrderLeg.AsNoTracking().Where(x => x.OrderId == orderId).ToListAsync();
+        var leagueList = await DB.League.AsNoTracking().ToListAsync();
+        var teamList = await DB.Team.AsNoTracking().ToListAsync();
+        var matchList = await DB.Match.AsNoTracking().ToListAsync();
+
         var result = list.Select(x => new TaskPageResponse
         {
             TaskInfo = TaskService.RenderTaskInfo(x),
+            OrderInfo = OrderService.RenderOrderInfo(order),
+            OrderLegList = legList.Select(OrderLegService.RenderOrderLegInfo).ToList(),
+            LeagueList = leagueList.Select(LeagueService.RenderLeagueInfo).ToList(),
+            TeamList = teamList.Select(TeamService.RenderTeamInfo).ToList(),
+            MatchList = matchList.Select(MatchService.RenderMatchInfo).ToList(),
+
         }).ToList();
 
         return Result(result);

@@ -41,10 +41,16 @@ public class MatchService(IServiceProvider provider) : BaseService(provider)
             .ToListAsync();
         var count = await query.CountAsync();
 
+        var leagueList = await DB.League.AsNoTracking().ToListAsync();
+        var teamList = await DB.Team.AsNoTracking().ToListAsync();
+
         var result = new PageList<MatchPageResponse>(
             list.Select(x => new MatchPageResponse
             {
-                MatchInfo = base.MatchService.RenderMatchInfo(x),
+                MatchInfo = MatchService.RenderMatchInfo(x),
+                LeagueInfo = LeagueService.RenderLeagueInfo(leagueList.FirstOrDefault(l => l.Id == x.LeagueId)),
+                HomeTeamInfo = TeamService.RenderTeamInfo(teamList.FirstOrDefault(t => t.Id == x.HomeTeamId)),
+                AwayTeamInfo = TeamService.RenderTeamInfo(teamList.FirstOrDefault(t => t.Id == x.AwayTeamId)),
             }).ToList(),
             request,
             count);

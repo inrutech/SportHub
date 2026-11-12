@@ -28,10 +28,4 @@ public class OrderController(OrderService service) : BaseController
         return service.SyncOrderAsync(request);
     }
 
-    [AdminValid]
-    [HttpGet("OrderList")]
-    public Task<SysResult<List<OrderListResponse>>> OrderListAsync([FromQuery] OrderListRequest request)
-    {
-        return service.OrderListAsync(request);
-    }
 }
