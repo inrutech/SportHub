@@ -38,6 +38,7 @@ namespace SportHub.Service.Common
                 CreatedTime = info.CreatedTime,
                 UpdatedTime = info.UpdatedTime,
                 Disabled = (info.Flag & (long)CommonCode.Disabled) > 0,
+                Result = info.Result
             };
         }
     }

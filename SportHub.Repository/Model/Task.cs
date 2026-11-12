@@ -28,4 +28,6 @@ public partial class Task
     public long CreatedTime { get; set; }
 
     public long UpdatedTime { get; set; }
+
+    public string? Result { get; set; }
 }

@@ -47,4 +47,5 @@ public partial class TaskInfo
     /// </summary>
     public bool Disabled { get; set; }
     public ProcessCode ProcessCode { get; set; }
+    public string? Result { get; set; }
 }
