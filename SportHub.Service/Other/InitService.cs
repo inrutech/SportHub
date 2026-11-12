@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
+using OtpNet;
+
 using SportHub.Core;
 using SportHub.Core.Code;
 using SportHub.Domain.Client.IM;
@@ -9,6 +11,7 @@ using SportHub.Domain.Other.Request;
 using SportHub.Repository.Model;
 
 using Zero.Core.Result;
+using Zero.Core.Util;
 
 namespace SportHub.Service.Other;
 
@@ -67,6 +70,32 @@ public class InitService(IServiceProvider provider) : BaseService(provider)
         }
 
         await DB.Config.AddRangeAsync(configList);
+        await DB.SaveChangesAsync();
+
+        return Result(true);
+    }
+
+    public async Task<SysResult<bool>> InitAdminAsync()
+    {
+        var exists = await DB.Admin.AnyAsync();
+        if (exists)
+        {
+            return Result(false, ErrorCode.USER_CUSTOM, "已初始化");
+        }
+        var secretKey = KeyGeneration.GenerateRandomKey(20);
+        var base32Secret = Base32Encoding.ToString(secretKey);
+        var admin = new Repository.Model.Admin
+        {
+            Id = Snowflake.NewID(),
+            Alias = "默认管理员",
+            CreatedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Flag = 0,
+            LoginName = "admin",
+            Password = CryptoHelper.AES_Encrypt(CryptoHelper.MD5_Encrypt("000000"), Params.AES_KEY),
+            GoogleAuthSecret = base32Secret,
+            UpdatedTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+        };
+        await DB.Admin.AddAsync(admin);
         await DB.SaveChangesAsync();
 
         return Result(true);

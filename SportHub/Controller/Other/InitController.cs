@@ -21,4 +21,10 @@ public class InitController(InitService service) : BaseController
     {
         return service.InitConfigAsync(isReset);
     }
+
+    [HttpPost("InitAdmin")]
+    public Task<SysResult<bool>> InitAdminAsync()
+    {
+        return service.InitAdminAsync();
+    }
 }
