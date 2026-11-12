@@ -41,10 +41,14 @@ public class TeamService(IServiceProvider provider) : BaseService(provider)
             .ToListAsync();
         var count = await query.CountAsync();
 
+        var leagueIdList = list.Select(x => x.LeagueId).Distinct().ToList();
+        var leagueList = await DB.League.AsNoTracking().Where(x => leagueIdList.Contains(x.Id)).ToListAsync();
+
         var result = new PageList<TeamPageResponse>(
             list.Select(x => new TeamPageResponse
             {
-                TeamInfo = base.TeamService.RenderTeamInfo(x),
+                TeamInfo = TeamService.RenderTeamInfo(x),
+                LeagueInfo = LeagueService.RenderLeagueInfo(leagueList.FirstOrDefault(l => l.Id == x.LeagueId)),
             }).ToList(),
             request,
             count);
