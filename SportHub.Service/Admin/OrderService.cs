@@ -42,9 +42,13 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             .Where(x => orderIdList.Contains(x.OrderId ?? 0))
             .ToListAsync();
 
-        var leagueList = await DB.League.ToListAsync();
-        var teamList = await DB.Team.ToListAsync();
-        var matchList = await DB.Match.ToListAsync();
+        var leagueIdList = legList.Select(x => x.LeagueId).Distinct().ToList();
+        var teamIdList = legList.SelectMany(x => new long?[] { x.HomeTeamId, x.AwayTeamId }).Distinct().ToList();
+        var matchIdList = legList.Select(x => x.MatchId).Distinct().ToList();
+
+        var leagueList = await DB.League.Where(x => leagueIdList.Contains(x.Id)).ToListAsync();
+        var teamList = await DB.Team.Where(x => teamIdList.Contains(x.Id)).ToListAsync();
+        var matchList = await DB.Match.Where(x => matchIdList.Contains(x.Id)).ToListAsync();
 
         var result = new PageList<OrderPageResponse>(
             list.Select(x => new OrderPageResponse
@@ -116,12 +120,20 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         var existingLegs = await DB.OrderLeg.Where(x => x.OrderId == order.Id).ToListAsync();
         var legList = new List<OrderLeg>();
 
+        var orderLeagueList = new List<League>();
+        var orderTeamList = new List<Team>();
+        var orderMatchList = new List<Match>();
+
         foreach (var row in rows.OrderBy(x => x.LegNo))
         {
-            var league = await ResolveLeagueAsync(leagueList, row.LeagueChs);
-            var homeTeam = await EnsureTeamAsync(teamList, row.HomeChs, league.Id);
-            var awayTeam = await EnsureTeamAsync(teamList, row.AwayChs, league.Id);
+            var league = await ResolveLeagueAsync(leagueList, row.LeagueChs, row.LeagueEn);
+            orderLeagueList.Add(league);
+            var homeTeam = await EnsureTeamAsync(teamList, row.HomeChs, row.HomeEn, league.Id);
+            orderTeamList.Add(homeTeam);
+            var awayTeam = await EnsureTeamAsync(teamList, row.AwayChs, row.AwayEn, league.Id);
+            orderTeamList.Add(awayTeam);
             var match = await EnsureMatchAsync(matchList, row.MatchId, league.Id, homeTeam.Id, awayTeam.Id);
+            orderMatchList.Add(match);
 
             var leg = existingLegs.FirstOrDefault(x => x.SourceNo == row.BetId);
             if (leg == null)
@@ -163,36 +175,38 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
         {
             OrderInfo = OrderService.RenderOrderInfo(order),
             OrderLegList = legList.Select(OrderLegService.RenderOrderLegInfo).ToList(),
-            LeagueList = leagueList.Select(LeagueService.RenderLeagueInfo).ToList(),
-            TeamList = teamList.Select(TeamService.RenderTeamInfo).ToList(),
-            MatchList = matchList.Select(MatchService.RenderMatchInfo).ToList()
+            LeagueList = orderLeagueList.Select(LeagueService.RenderLeagueInfo).ToList(),
+            TeamList = orderTeamList.Select(TeamService.RenderTeamInfo).ToList(),
+            MatchList = orderMatchList.Select(MatchService.RenderMatchInfo).ToList()
         };
 
         return Result(r);
     }
 
-    private async Task<League?> ResolveLeagueAsync(List<League> leagueList, string? leagueName)
+    private async Task<League?> ResolveLeagueAsync(List<League> leagueList, string? leagueNameChs, string? leagueNameEn)
     {
-        var name = leagueName.Trim();
+        var nameCHS = leagueNameChs.Trim();
+        var nameEN = leagueNameEn?.Trim();
         var league = leagueList.FirstOrDefault(x =>
-            (!string.IsNullOrWhiteSpace(x.NameZhCn) && x.NameZhCn == name) ||
-            (!string.IsNullOrWhiteSpace(x.NameZhTw) && x.NameZhTw == name) ||
-            (!string.IsNullOrWhiteSpace(x.NameEn) && x.NameEn == name) ||
-            (!string.IsNullOrWhiteSpace(x.ShortNameZhCn) && x.ShortNameZhCn == name) ||
-            (!string.IsNullOrWhiteSpace(x.ShortNameZhTw) && x.ShortNameZhTw == name) ||
-            (!string.IsNullOrWhiteSpace(x.ShortNameEn) && x.ShortNameEn == name));
+            (!string.IsNullOrWhiteSpace(x.NameZhCn) && x.NameZhCn == nameCHS) ||
+            (!string.IsNullOrWhiteSpace(x.NameZhTw) && x.NameZhTw == nameCHS) ||
+            (!string.IsNullOrWhiteSpace(x.NameEn) && x.NameEn == nameEN) ||
+            (!string.IsNullOrWhiteSpace(x.ShortNameZhCn) && x.ShortNameZhCn == nameCHS) ||
+            (!string.IsNullOrWhiteSpace(x.ShortNameZhTw) && x.ShortNameZhTw == nameCHS) ||
+            (!string.IsNullOrWhiteSpace(x.ShortNameEn) && x.ShortNameEn == nameEN));
 
         return league;
     }
 
-    private async Task<Team> EnsureTeamAsync(List<Team> teamList, string? teamName, long? leagueId)
+    private async Task<Team> EnsureTeamAsync(List<Team> teamList, string? teamNameChs, string? teamNameEN, long? leagueId)
     {
-        var name = teamName.Trim();
+        var nameCHS = teamNameChs.Trim();
+        var nameEN = teamNameEN?.Trim();
         var team = teamList.FirstOrDefault(x =>
             x.LeagueId == leagueId &&
-            ((x.NameZhCn != null && x.NameZhCn == name) ||
-             (x.NameZhTw != null && x.NameZhTw == name) ||
-             (x.NameEn != null && x.NameEn == name)));
+            ((x.NameZhCn != null && x.NameZhCn == nameCHS) ||
+             (x.NameZhTw != null && x.NameZhTw == nameCHS) ||
+             (x.NameEn != null && x.NameEn == nameEN)));
 
         if (team == null)
         {
@@ -201,9 +215,9 @@ public class OrderService(IServiceProvider provider) : BaseService(provider)
             {
                 Id = Snowflake.NewID(),
                 LeagueId = leagueId,
-                NameEn = name,
-                NameZhCn = name,
-                NameZhTw = name,
+                NameEn = teamNameEN,
+                NameZhCn = teamNameChs,
+                NameZhTw = teamNameChs,
                 Flag = 0,
                 CreatedTime = createdAt,
                 UpdatedTime = createdAt

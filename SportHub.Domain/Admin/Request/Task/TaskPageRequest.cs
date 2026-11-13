@@ -4,7 +4,6 @@ namespace SportHub.Domain.Admin.Request.Task;
 
 public class TaskPageRequest
 {
-    [Required]
-    public string? OrderId { get; set; }
+    public long? OrderId { get; set; }
 
 }

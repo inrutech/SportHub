@@ -106,6 +106,15 @@ public partial class Row
     [JsonPropertyName("away_chs")]
     public string AwayChs { get; set; }
 
+    [JsonPropertyName("league_en")]
+    public string LeagueEn { get; set; }
+
+    [JsonPropertyName("home_en")]
+    public string HomeEn { get; set; }
+
+    [JsonPropertyName("away_en")]
+    public string AwayEn { get; set; }
+
     [JsonPropertyName("market_title")]
     public string MarketTitle { get; set; }
 
